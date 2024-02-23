@@ -19,7 +19,7 @@ class MonitoringApp(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
         self.title("Devices")
-        self.geometry("700x500")
+        self.geometry("850x600")
 
         # Create scrollable frame to contain tab view
         self.main_frame = ctk.CTkFrame(self)
