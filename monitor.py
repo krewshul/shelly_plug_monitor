@@ -19,7 +19,6 @@ class MonitoringApp(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
         self.title("Devices")
-        self.geometry("850x600")
 
         # Create scrollable frame to contain tab view
         self.main_frame = ctk.CTkFrame(self)
@@ -67,11 +66,11 @@ class MonitoringApp(ctk.CTk):
 
     def display_no_ip_warning(self):
         message_label = ctk.CTkLabel(self.tab_view, text="Please set the IP addresses of your devices in the credentials file")
-        message_label.grid(row=0, column=0, pady=20, sticky="nsew")
+        message_label.pack(pady=20)
 
     def display_credentials_error(self):
         error_label = ctk.CTkLabel(self.tab_view, text="Credentials file not found!")
-        error_label.grid(row=0, column=0, pady=20, sticky="nsew")
+        error_label.pack(pady=20)
 
     def create_tab(self, ip_address):
         tab = self.tab_view.add(ip_address)
@@ -117,8 +116,14 @@ class MonitoringApp(ctk.CTk):
 
 
     def update_ui(self, ip_address, response, apower, voltage, current, temperature):
+
+        # Extracting Celsius and Fahrenheit temperatures
+        temp_c = temperature.get('tC', 'N/A')
+        temp_f = temperature.get('tF', 'N/A')
+
+        # Displaying temperatures in the UI
         self.text_areas[ip_address].delete("1.0", "end")
-        self.text_areas[ip_address].insert("1.0", f"Power: {apower}\nVoltage: {voltage}\nCurrent: {current}\nTemperature: {temperature}")
+        self.text_areas[ip_address].insert("1.0", f"Power: {apower}\nVoltage: {voltage}\nCurrent: {current}\nTemp (C): {temp_c}\nTemp (F): {temp_f}")
 
         if '"output":true' in response.text:
             self.status_labels[ip_address].configure(text="OUTLET POWER IS ON")
@@ -208,11 +213,11 @@ class MonitoringApp(ctk.CTk):
 
             # Remove the button widget
             chart_button = self.tab_view.tab(ip_address).winfo_children()[-1]
-            chart_button.destroy()
+            chart_button.pack_forget()
 
             # Create a frame within the tab view for the chart
             chart_frame = ctk.CTkFrame(self.tab_view.tab(ip_address))
-            chart_frame.pack(side='top', fill='both', expand=True)
+            chart_frame.pack()
 
             # Create a figure and subplot
             fig = Figure(figsize=(11, 4))
@@ -225,7 +230,7 @@ class MonitoringApp(ctk.CTk):
 
             # Embed the plot into the tkinter window
             canvas = FigureCanvasTkAgg(fig, master=chart_frame)
-            canvas.get_tk_widget().pack(side='top', fill="x", expand=True)
+            canvas.get_tk_widget().pack()
 
             # Adjust subplot parameters to add padding to the bottom
             fig.subplots_adjust(bottom=0.15)
