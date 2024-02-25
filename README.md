@@ -51,6 +51,6 @@ Upon launching the application, you'll be prompted with 2 buttons: "Set Credenti
    
 2. After setting your credentials, press "Begin Monitoring" to start monitoring your devices.
    
-Once the credentials are set monitoring begun, the application will display the devices and their status. You can interact with each device, view real-time data, and schedule automated tasks as needed.
+Once the credentials are set and monitoring begun, the application will display the devices and their status. You can interact with each device, view real-time data, and schedule automated tasks as needed.
 
 Use the buttons provided to toggle device power, create new schedules, view existing schedules, and chart power consumption trends.
