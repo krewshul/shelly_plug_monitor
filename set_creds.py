@@ -1,5 +1,4 @@
 import customtkinter as ctk
-import awesometkinter as atk
 from CTkMessagebox import CTkMessagebox
 
 class LoginUI:
@@ -20,10 +19,10 @@ class LoginUI:
         self.ip_entry_frames = []
 
         self.button_add_ip = ctk.CTkButton(master, fg_color="transparent", border_width=2, text="Add IP Address", command=self.add_ip_entry_frame)
-        self.button_add_ip.grid(row=2, column=1, pady=10, sticky="e")
+        self.button_add_ip.grid(row=2, column=1, pady=10, padx=5, sticky="news")
 
         self.button_login = ctk.CTkButton(master, fg_color="transparent", border_width=2, text="Update", command=self.login)
-        self.button_login.grid(row=3, column=1, pady=10, sticky="se")
+        self.button_login.grid(row=3, column=1, pady=10, padx=5, sticky="news")
 
     def add_ip_entry_frame(self):
         ip_entry_frame = ctk.CTkFrame(self.master)

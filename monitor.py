@@ -1,7 +1,7 @@
-import tkinter as tk
 import requests
 import logging
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -18,7 +18,9 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         # Label to indicate the purpose of the window
         label = ctk.CTkLabel(self, text=f"Create A Schedule")
         label.grid(row=0, column=0, columnspan=3, pady=10)
-
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("dark-blue")
+        
         # Create a frame for the schedule creation
         create_frame = ctk.CTkFrame(self, fg_color="#333333")  # Gray background
         create_frame.grid(row=1, column=0, columnspan=3, rowspan=3, padx=5, pady=5, sticky="nsew")
@@ -26,7 +28,7 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         # Day Entry and Label
         day_label = ctk.CTkLabel(create_frame, text=f"Day:")
         day_label.grid(row=1, column=0, padx=5, pady=5)
-        self.day_entry = ctk.CTkEntry(create_frame, placeholder_text="1-7")
+        self.day_entry = ctk.CTkEntry(create_frame, placeholder_text="0-6")
         self.day_entry.grid(row=2, column=0, padx=5, pady=5)
 
         # Hour Entry and Label
@@ -38,7 +40,7 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         # Minute Entry and Label
         minute_label = ctk.CTkLabel(create_frame, text=f"Minute:")
         minute_label.grid(row=1, column=2, padx=5, pady=5)
-        self.minute_entry = ctk.CTkEntry(create_frame, placeholder_text="0-60")
+        self.minute_entry = ctk.CTkEntry(create_frame, placeholder_text="0-59")
         self.minute_entry.grid(row=2, column=2, padx=5, pady=5)
 
         # Create a frame for the schedule ID entry and delete button
@@ -58,7 +60,7 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         # Buttons for schedule actions
         list_button = ctk.CTkButton(self, fg_color="transparent", border_width=2, text=f"List Schedules", command=self.list_schedules)
         list_button.grid(row=0, column=3, padx=5, pady=5)
-        create_button = ctk.CTkButton(self, fg_color="transparent", border_width=2, text=f"Create", command=self.create_schedule)
+        create_button = ctk.CTkButton(create_frame, fg_color="transparent", border_width=2, text=f"Create", command=self.create_schedule)
         create_button.grid(row=3, column=1, padx=5, pady=5)
         
         # Text widget to display the schedule data
@@ -77,8 +79,6 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
             url = f"http://{self.ip_address}/rpc/Schedule.List"
             response = requests.get(url)
             data = response.json()
-            print("List of schedules:")
-            print(data)
 
             # Display data in the text widget
             self.schedule_text.insert("end", "List of schedules:\n")
@@ -87,38 +87,47 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
                 enable = job.get('enable', '')
                 timespec = job.get('timespec', '')
                 calls_method = job.get('calls', [{}])[0].get('method', '')
-                self.schedule_text.insert("end", f"Job ID: {job_id}, Enable: {enable}, Timespec: {timespec}, Calls Method: {calls_method}\n")
+                self.schedule_text.insert("end", f"Job ID: {job_id}, Enable: {enable}, Timespec: {timespec}, Method: {calls_method}\n")
         except requests.RequestException as e:
             print(f"Error listing schedules: {e}")
 
     # Method to create a schedule
     def create_schedule(self):
-        day = self.day_entry.get()
-        minute = int(self.minute_entry.get())
-        hour = int(self.hour_entry.get())
         
         try:
+            day = self.day_entry.get()
+            minute = int(self.minute_entry.get())
+            hour = int(self.hour_entry.get())
+            
             url = f"http://{self.ip_address}/rpc/Schedule.Create?timespec=0%20{minute}%20{hour}%20*%20*%20{day}&calls=[{{\"method\":\"switch.toggle\",\"params\":{{\"id\":0}}}}]"
             response = requests.get(url)
             data = response.json()
-            print("Schedule created:")
-            print(data)
+            
+            if 'code' in data and data['code'] == -103:
+                CTkMessagebox(title="Error!", message=f"Failed to create a schedule: {data['message']}", icon="cancel")
+            else:
+                CTkMessagebox(master=self.master, title="Success!", message="The schedule has been created!", icon="check")
+        except ValueError as e:
+            CTkMessagebox(title="Error!", message=f"Failed to create a schedule: Only use numbers to set a schedule", icon="cancel")
         except requests.RequestException as e:
-            print(f"Error creating schedule: {e}")
+            CTkMessagebox(title="Error!", message=f"Failed to create a schedule: {e}", icon="cancel")
 
     # Method to delete a schedule
     def delete_schedule(self):
-        schedule_id = int(self.schedule_id_entry.get())
 
         try:
+            schedule_id = int(self.schedule_id_entry.get())
+            
             url = f"http://{self.ip_address}/rpc/Schedule.Delete?id={schedule_id}"
             response = requests.get(url)
             data = response.json()
-            print("Schedule deleted:")
-            print(data)
-        except requests.RequestException as e:
-            print(f"Error deleting schedule: {e}")
 
+            if 'code' in data and data['code'] == -103:
+                CTkMessagebox(title="Error!", message="No schedule is found with that ID", icon="warning")
+            else:
+                CTkMessagebox(master=self.master, title="Success!", message="The schedule has been deleted!", icon="check")
+        except ValueError as e:
+            CTkMessagebox(title="Error!", message="Please enter the number of the schedule you wish to delete", icon="cancel")
 
 class MonitoringApp(ctk.CTk):
     def __init__(self):
@@ -326,7 +335,7 @@ class MonitoringApp(ctk.CTk):
         temp_f = temperature.get('tF', 'N/A')
 
         self.text_areas[ip_address].delete("1.0", "end")
-        self.text_areas[ip_address].insert("1.0", f"Power: {apower}\nVoltage: {voltage}\nCurrent: {current}\nTemp (C): {temp_c}\nTemp (F): {temp_f}")
+        self.text_areas[ip_address].insert("1.0", f"Watts: {apower}\nVolts: {voltage}\nAmps: {current}\nTemp (C): {temp_c}\nTemp (F): {temp_f}")
 
         if '"output":true' in response.text:
             self.status_labels[ip_address].configure(text="OUTLET POWER IS ON")
