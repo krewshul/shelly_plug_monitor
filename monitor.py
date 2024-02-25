@@ -1,6 +1,6 @@
 """
 App: monitor.py
-Description: This wil monitor your SHelly Smart Plug.
+Description: This will monitor your Shelly Smart Plug.
 """
 
 import logging
