@@ -1,44 +1,57 @@
-import requests
+"""
+App: monitor.py
+Description: This wil monitor your SHelly Smart Plug.
+"""
+
 import logging
+import time
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import time
+import requests
 
 class ScheduleSettingWindow(ctk.CTkToplevel):
+    """A window for setting schedules for a specific device."""
+
     def __init__(self, ip_address):
+        """Initialize the ScheduleSettingWindow.
+
+        Args:
+            ip_address (str): The IP address of the device.
+        """
         super().__init__()
         self.ip_address = ip_address
         self.title(f"Scheduling for {ip_address}")
         self.setup_ui()
 
     def setup_ui(self):
+        """Set up the user interface for schedule setting."""
         # Label to indicate the purpose of the window
-        label = ctk.CTkLabel(self, text=f"Create A Schedule")
+        label = ctk.CTkLabel(self, text="Create A Schedule")
         label.grid(row=0, column=0, columnspan=3, pady=10)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
-        
+
         # Create a frame for the schedule creation
         create_frame = ctk.CTkFrame(self, fg_color="#333333")  # Gray background
         create_frame.grid(row=1, column=0, columnspan=3, rowspan=3, padx=5, pady=5, sticky="nsew")
-        
+
         # Day Entry and Label
-        day_label = ctk.CTkLabel(create_frame, text=f"Day:")
+        day_label = ctk.CTkLabel(create_frame, text="Day:")
         day_label.grid(row=1, column=0, padx=5, pady=5)
-        self.day_entry = ctk.CTkEntry(create_frame, placeholder_text="0-6")
+        self.day_entry = ctk.CTkEntry(create_frame, placeholder_text="1-7")
         self.day_entry.grid(row=2, column=0, padx=5, pady=5)
 
         # Hour Entry and Label
-        hour_label = ctk.CTkLabel(create_frame, text=f"Hour:")
+        hour_label = ctk.CTkLabel(create_frame, text="Hour:")
         hour_label.grid(row=1, column=1, padx=5, pady=5)
         self.hour_entry = ctk.CTkEntry(create_frame, placeholder_text="0-23")
         self.hour_entry.grid(row=2, column=1, padx=5, pady=5)
 
         # Minute Entry and Label
-        minute_label = ctk.CTkLabel(create_frame, text=f"Minute:")
+        minute_label = ctk.CTkLabel(create_frame, text="Minute:")
         minute_label.grid(row=1, column=2, padx=5, pady=5)
         self.minute_entry = ctk.CTkEntry(create_frame, placeholder_text="0-59")
         self.minute_entry.grid(row=2, column=2, padx=5, pady=5)
@@ -48,36 +61,48 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         delete_frame.grid(row=1, column=3, rowspan=3, padx=5, pady=5, sticky="nsew")
 
         # Schedule ID Entry and Label inside the frame
-        schedule_id_label = ctk.CTkLabel(delete_frame, text=f"Schedule Deletion")
+        schedule_id_label = ctk.CTkLabel(delete_frame, text="Schedule Deletion")
         schedule_id_label.grid(row=0, column=0, padx=5, pady=5)
-        self.schedule_id_entry = ctk.CTkEntry(delete_frame, placeholder_text=f"JOB ID# of Schedule")
+        self.schedule_id_entry = ctk.CTkEntry(delete_frame, placeholder_text="JOB ID# of Schedule")
         self.schedule_id_entry.grid(row=1, column=0, padx=5, pady=5)
 
         # Delete Button inside the frame
-        delete_button = ctk.CTkButton(delete_frame, fg_color="transparent", border_width=2, text=f"Delete Schedule", command=self.delete_schedule)
+        delete_button = ctk.CTkButton(delete_frame,
+                                      fg_color="transparent",
+                                      border_width=2,
+                                      text="Delete Schedule",
+                                      command=self.delete_schedule)
         delete_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
 
         # Buttons for schedule actions
-        list_button = ctk.CTkButton(self, fg_color="transparent", border_width=2, text=f"List Schedules", command=self.list_schedules)
+        list_button = ctk.CTkButton(self,
+                                    fg_color="transparent",
+                                    border_width=2,
+                                    text="List Schedules",
+                                    command=self.list_schedules)
         list_button.grid(row=0, column=3, padx=5, pady=5)
-        create_button = ctk.CTkButton(create_frame, fg_color="transparent", border_width=2, text=f"Create", command=self.create_schedule)
+        create_button = ctk.CTkButton(create_frame,
+                                      fg_color="transparent",
+                                      border_width=2,
+                                      text="Create",
+                                      command=self.create_schedule)
         create_button.grid(row=3, column=1, padx=5, pady=5)
-        
+
         # Text widget to display the schedule data
         self.schedule_text = ctk.CTkTextbox(self)
         self.schedule_text.configure(width=500, height=100)
 
         self.schedule_text.grid(row=5, column=0, columnspan=5, padx=5, pady=5)
 
-    # Method to list schedules
     def list_schedules(self):
+        """List schedules for the device."""
         # Clear previous content
         self.schedule_text.delete("1.0", "end")
 
         # Listing schedules
         try:
             url = f"http://{self.ip_address}/rpc/Schedule.List"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             data = response.json()
 
             # Display data in the text widget
@@ -87,56 +112,75 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
                 enable = job.get('enable', '')
                 timespec = job.get('timespec', '')
                 calls_method = job.get('calls', [{}])[0].get('method', '')
-                self.schedule_text.insert("end", f"Job ID: {job_id}, Enable: {enable}, Timespec: {timespec}, Method: {calls_method}\n")
+                self.schedule_text.insert("end",
+                                          f"Job ID: {job_id}, Enable: {enable}, Timespec: {timespec}, Method: {calls_method}\n")
         except requests.RequestException as e:
             print(f"Error listing schedules: {e}")
 
-    # Method to create a schedule
     def create_schedule(self):
-        
+        """Create a schedule for the device."""
         try:
             day = self.day_entry.get()
             minute = int(self.minute_entry.get())
             hour = int(self.hour_entry.get())
-            
+
             url = f"http://{self.ip_address}/rpc/Schedule.Create?timespec=0%20{minute}%20{hour}%20*%20*%20{day}&calls=[{{\"method\":\"switch.toggle\",\"params\":{{\"id\":0}}}}]"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             data = response.json()
-            
+
             if 'code' in data and data['code'] == -103:
-                CTkMessagebox(title="Error!", message=f"Failed to create a schedule: {data['message']}", icon="cancel")
+                CTkMessagebox(title="Error!",
+                              message=f"Failed to create a schedule: {data['message']}",
+                              icon="cancel")
             else:
-                CTkMessagebox(master=self.master, title="Success!", message="The schedule has been created!", icon="check")
-        except ValueError as e:
-            CTkMessagebox(title="Error!", message=f"Failed to create a schedule: Only use numbers to set a schedule", icon="cancel")
+                CTkMessagebox(master=self.master,
+                              title="Success!",
+                              message="The schedule has been created!",
+                              icon="check")
+        except ValueError:
+            CTkMessagebox(title="Error!",
+                          message="Failed to create a schedule: Only use numbers to set a schedule",
+                          icon="cancel")
         except requests.RequestException as e:
-            CTkMessagebox(title="Error!", message=f"Failed to create a schedule: {e}", icon="cancel")
+            CTkMessagebox(title="Error!",
+                          message=f"Failed to create a schedule: {e}",
+                          icon="cancel")
 
-    # Method to delete a schedule
     def delete_schedule(self):
-
+        """Delete a schedule for the device."""
         try:
             schedule_id = int(self.schedule_id_entry.get())
-            
+
             url = f"http://{self.ip_address}/rpc/Schedule.Delete?id={schedule_id}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             data = response.json()
 
             if 'code' in data and data['code'] == -103:
-                CTkMessagebox(title="Error!", message="No schedule is found with that ID", icon="warning")
+                CTkMessagebox(title="Error!",
+                              message="No schedule is found with that ID",
+                              icon="warning")
             else:
-                CTkMessagebox(master=self.master, title="Success!", message="The schedule has been deleted!", icon="check")
-        except ValueError as e:
-            CTkMessagebox(title="Error!", message="Please enter the number of the schedule you wish to delete", icon="cancel")
+                CTkMessagebox(master=self.master,
+                              title="Success!",
+                              message="The schedule has been deleted!",
+                              icon="check")
+        except ValueError:
+            CTkMessagebox(title="Error!",
+                          message="Please enter the number of the schedule you wish to delete",
+                          icon="cancel")
 
 class MonitoringApp(ctk.CTk):
+    """A monitoring application for controlling and monitoring devices."""
+
     def __init__(self):
+        """Initialize the MonitoringApp."""
         super().__init__()
         self.setup_ui()
         self.setup_logging()
         self.read_credentials()
 
     def setup_ui(self):
+        """Set up the user interface for the application."""
         # Sets appearance mode and color theme
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
@@ -151,22 +195,25 @@ class MonitoringApp(ctk.CTk):
         self.status_labels = {}  # Dictionary to store status labels for each tab
 
     def setup_logging(self):
+        """Set up logging configuration."""
         # Configures logging to a file
-        logging.basicConfig(filename='monitoring.log', level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+        logging.basicConfig(filename='monitoring.log',
+                            level=logging.ERROR,
+                            format='%(asctime)s - %(levelname)s - %(message)s')
 
     def read_credentials(self):
+        """Read device IP addresses from credentials file and create tabs."""
         # Reads IP addresses from a credentials file and creates tabs for each device
         try:
-            with open("credentials.py", "r") as file:
+            with open("credentials.py", "r", encoding="utf-8") as file:
                 lines = file.readlines()
 
                 ip_addresses = []
                 for line in lines:
                     line = line.strip()
                     if line.startswith("IP_ADDRESS"):
-                        variable_name, value = line.split("=")
-                        ip_address = value.strip().strip("'\"")
-                        ip_addresses.append(ip_address)
+                        value = line.split("=")[-1].strip().strip("'\"")
+                        ip_addresses.append(value)
 
                 if not ip_addresses:
                     self.display_no_ip_warning()
@@ -176,23 +223,23 @@ class MonitoringApp(ctk.CTk):
                 for ip_address in ip_addresses:
                     self.create_tab(ip_address)
                     self.update_data(ip_address)
-
         except FileNotFoundError:
             self.display_credentials_error()
             logging.error("Credentials file not found!")
 
     def display_no_ip_warning(self):
-        # Displays a warning message when no IP addresses are found in the credentials file
-        message_label = ctk.CTkLabel(self.tab_view, text="Please set the IP addresses of your devices in the credentials file")
+        """Display a warning when no IP addresses are found in credentials file."""
+        message_label = ctk.CTkLabel(self.tab_view,
+                                     text="Please set the IP addresses in your credentials file")
         message_label.pack(pady=20)
 
     def display_credentials_error(self):
-        # Displays an error message when the credentials file is not found
+        """Display an error when the credentials file is not found."""
         error_label = ctk.CTkLabel(self.tab_view, text="Credentials file not found!")
         error_label.pack(pady=20)
 
     def create_tab(self, ip_address):
-        # Creates a tab for a device with text areas, status labels, and buttons
+        """Create a tab for a device with text areas, status labels, and buttons."""
         tab = self.tab_view.add(ip_address)
         main_frame = ctk.CTkFrame(tab)
         main_frame.pack(fill="both", expand=True)
@@ -203,27 +250,39 @@ class MonitoringApp(ctk.CTk):
         self.status_labels[ip_address] = status_label
 
         # Button to toggle switch
-        toggle_button = ctk.CTkButton(tab, fg_color="transparent", border_width=2, text="Toggle", command=lambda addr=ip_address: self.toggle_switch(addr))
+        toggle_button = ctk.CTkButton(tab,
+                                      fg_color="transparent",
+                                      border_width=2,
+                                      text="Toggle",
+                                      command=lambda addr=ip_address: self.toggle_switch(addr))
         toggle_button.pack(pady=5)
-        
+
         # Button to open schedule setting window
-        schedule_button = ctk.CTkButton(tab, fg_color="transparent", border_width=2, text="Set Schedule", command=lambda addr=ip_address: self.open_schedule_window(addr))
+        schedule_button = ctk.CTkButton(tab,
+                                        fg_color="transparent",
+                                        border_width=2,
+                                        text="Set Schedule",
+                                        command=lambda addr=ip_address: self.open_schedule_window(addr))
         schedule_button.pack(pady=5)
 
         # Button to chart power
-        chart_button = ctk.CTkButton(tab, fg_color="transparent", border_width=2, text="Chart Power", command=lambda addr=ip_address: self.chart_power(addr))
+        chart_button = ctk.CTkButton(tab,
+                                     fg_color="transparent",
+                                     border_width=2,
+                                     text="Chart Power",
+                                     command=lambda addr=ip_address: self.chart_power(addr))
         chart_button.pack(pady=5)
 
     def open_schedule_window(self, ip_address):
-        # Opens the schedule setting window for a specific device
+        """Open the schedule setting window for a specific device."""
         schedule_window = ScheduleSettingWindow(ip_address)
         schedule_window.mainloop()
 
     def toggle_switch(self, ip_address):
-        # Toggles the switch of a device and updates the status label accordingly
+        """Toggle the switch of a device and update the status label."""
         try:
             url = f"http://{ip_address}/rpc/Switch.Toggle?id=0"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
 
             if '{"was_on":false}' in response.text:
                 self.status_labels[ip_address].configure(text="OUTLET POWER IS ON")
@@ -234,14 +293,14 @@ class MonitoringApp(ctk.CTk):
             self.handle_request_exception(ip_address, e)
 
     def chart_power(self, ip_address):
-        # Charts the power consumption of a device over time
+        """Chart the power consumption of a device over time."""
         try:
             url = f"http://{ip_address}/rpc/Switch.GetStatus?id=0"
 
             # Function to update the chart continuously
             def update_chart():
                 try:
-                    response = requests.get(url)
+                    response = requests.get(url, timeout=10)
                     data = response.json()
 
                     apower = data.get("apower")
@@ -263,7 +322,7 @@ class MonitoringApp(ctk.CTk):
                     ax.spines['top'].set_visible(False)
                     ax.spines['right'].set_visible(False)
                     ax.spines['bottom'].set_visible(False)
-                    ax.spines['left'].set_visible(False) 
+                    ax.spines['left'].set_visible(False)
                     ax.grid(False)
                     ax.figure.autofmt_xdate()
                     ax.set_facecolor('#333333')
@@ -271,7 +330,12 @@ class MonitoringApp(ctk.CTk):
                     ax.set_ylim(top=max(powers) + 250)
 
                     for i, power in enumerate(powers):
-                        ax.text(timestamps[i], power, str(power), ha='center', va='bottom', color='white')
+                        ax.text(timestamps[i],
+                                power,
+                                str(power),
+                                ha='center',
+                                va='bottom',
+                                color='white')
 
                     l = ax.fill_between(timestamps, powers)
                     l.set_facecolors([[.5,.5,.8,.3]])
@@ -310,10 +374,10 @@ class MonitoringApp(ctk.CTk):
             print(f"Error fetching data for {ip_address}: {e}")
 
     def update_data(self, ip_address):
-        # Updates the data for a device including power, voltage, current, and temperature
+        """Update the data for a device including power, voltage, current, and temperature."""
         try:
             url = f"http://{ip_address}/rpc/Switch.GetStatus?id=0"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
 
             data = response.json()
 
@@ -328,9 +392,8 @@ class MonitoringApp(ctk.CTk):
         except requests.RequestException as e:
             self.handle_request_exception(ip_address, e)
 
-
     def update_ui(self, ip_address, response, apower, voltage, current, temperature):
-        # Updates the UI with the latest data for a device
+        """Update the UI with the latest data for a device."""
         temp_c = temperature.get('tC', 'N/A')
         temp_f = temperature.get('tF', 'N/A')
 
@@ -343,7 +406,7 @@ class MonitoringApp(ctk.CTk):
             self.status_labels[ip_address].configure(text="OUTLET POWER IS OFF")
 
     def handle_request_exception(self, ip_address, e):
-        # Handles exceptions that occur during requests and logs the errors
+        """Handle exceptions that occur during requests and log the errors."""
         error_msg = f"Error fetching data for {ip_address}: {e}"
         error_label = ctk.CTkLabel(self.tab_view, text=error_msg)
         error_label.pack(pady=20)
