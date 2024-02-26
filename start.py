@@ -28,7 +28,9 @@ def main():
     root = ctk.CTk()
     root.title("Shelly Monitoring Tool")
     root.geometry("300x100")
-
+    ctk.set_appearance_mode("dark")
+    ctk.set_default_color_theme("dark-blue")
+    
     button_open_set_creds = ctk.CTkButton(root,
                                           fg_color="transparent",
                                           border_width=2,
