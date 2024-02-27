@@ -27,6 +27,8 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
         self.ip_address = ip_address
         self.title(f"Scheduling for {ip_address}")
         self.setup_ui()
+        self.attributes("-topmost", True)  # Set the window to be topmost
+
 
     def setup_ui(self):
         """Set up the user interface for schedule setting."""
@@ -283,7 +285,7 @@ class MonitoringApp(ctk.CTk):
     def open_schedule_window(self, ip_address):
         """Open the schedule setting window for a specific device."""
         schedule_window = ScheduleSettingWindow(ip_address)
-        schedule_window.mainloop()
+        schedule_window.lift() 
 
     def toggle_switch(self, ip_address):
         """Toggle the switch of a device and update the status label."""
