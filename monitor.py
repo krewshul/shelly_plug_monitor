@@ -5,6 +5,8 @@ Description: This will monitor your Shelly Smart Plug.
 
 import logging
 import time
+import os
+from dotenv import load_dotenv
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 import matplotlib.pyplot as plt
@@ -115,7 +117,9 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
                 self.schedule_text.insert("end",
                                           f"Job ID: {job_id}, Enable: {enable}, Timespec: {timespec}, Method: {calls_method}\n")
         except requests.RequestException as e:
-            print(f"Error listing schedules: {e}")
+            CTkMessagebox(title="Error!",
+                          message=f"Failed to list schedules: {e}",
+                          icon="error")
 
     def create_schedule(self):
         """Create a schedule for the device."""
@@ -132,19 +136,23 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
                 CTkMessagebox(title="Error!",
                               message=f"Failed to create a schedule: {data['message']}",
                               icon="cancel")
+                logging.error(f"Failed to create schedule. {data['message']}")
+
             else:
                 CTkMessagebox(master=self.master,
                               title="Success!",
                               message="The schedule has been created!",
-                              icon="check")
+                              icon="info")
         except ValueError:
             CTkMessagebox(title="Error!",
                           message="Failed to create a schedule: Only use numbers to set a schedule",
                           icon="cancel")
+            logging.error("Failed to create schedule. Only use numbers")
         except requests.RequestException as e:
             CTkMessagebox(title="Error!",
                           message=f"Failed to create a schedule: {e}",
                           icon="cancel")
+            logging.error("Failed to create schedule")
 
     def delete_schedule(self):
         """Delete a schedule for the device."""
@@ -163,7 +171,7 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
                 CTkMessagebox(master=self.master,
                               title="Success!",
                               message="The schedule has been deleted!",
-                              icon="check")
+                              icon="info")
         except ValueError:
             CTkMessagebox(title="Error!",
                           message="Please enter the number of the schedule you wish to delete",
@@ -202,30 +210,29 @@ class MonitoringApp(ctk.CTk):
                             format='%(asctime)s - %(levelname)s - %(message)s')
 
     def read_credentials(self):
-        """Read device IP addresses from credentials file and create tabs."""
-        # Reads IP addresses from a credentials file and creates tabs for each device
+        """Read device IP addresses from .env file and create tabs."""
         try:
-            with open("credentials.py", "r", encoding="utf-8") as file:
-                lines = file.readlines()
+            load_dotenv()  # Load variables from .env file
+            ip_addresses = [os.getenv(f'IP_ADDRESS_{i}') for i in range(1, 100) if os.getenv(f'IP_ADDRESS_{i}')]
+            
+            if not ip_addresses:
+                self.display_no_ip_warning()
+                logging.warning("No IP addresses found in .env file.")
+                return
 
-                ip_addresses = []
-                for line in lines:
-                    line = line.strip()
-                    if line.startswith("IP_ADDRESS"):
-                        value = line.split("=")[-1].strip().strip("'\"")
-                        ip_addresses.append(value)
-
-                if not ip_addresses:
-                    self.display_no_ip_warning()
-                    logging.warning("No IP addresses found in credentials file.")
-                    return
-
-                for ip_address in ip_addresses:
-                    self.create_tab(ip_address)
-                    self.update_data(ip_address)
-        except FileNotFoundError:
-            self.display_credentials_error()
-            logging.error("Credentials file not found!")
+            for ip_address in ip_addresses:
+                self.create_tab(ip_address)
+                self.update_data(ip_address)
+        except Exception:
+            CTkMessagebox(title="Error",
+                          message=f"NOT COMMUNICATING WITH {ip_address}",
+                          icon="cancel",
+                          cancel_button="none",
+                          button_color="transparent",
+                          button_hover_color="gray13",
+                          option_1=" ")
+            logging.error(f"Failed to communicate with IP address {ip_address} from .env while opening the monitor.py")
+            self.after(3000, self.quit)
 
     def display_no_ip_warning(self):
         """Display a warning when no IP addresses are found in credentials file."""
@@ -347,7 +354,11 @@ class MonitoringApp(ctk.CTk):
                     self.after(5000, update_chart)
 
                 except requests.RequestException as e:
-                    print(f"Error fetching data for {ip_address}: {e}")
+                    error_msg = f"Error fetching data for {ip_address}: {e}"
+                    CTkMessagebox(title="Error!",
+                                  message=error_msg,
+                                  icon="error")
+                    logging.error(error_msg)
 
             chart_button = self.tab_view.tab(ip_address).winfo_children()[-1]
             chart_button.pack_forget()
@@ -371,7 +382,11 @@ class MonitoringApp(ctk.CTk):
             update_chart()
 
         except requests.RequestException as e:
-            print(f"Error fetching data for {ip_address}: {e}")
+            error_msg = f"Error fetching data for {ip_address}: {e}"
+            CTkMessagebox(title="Error!",
+                          message=error_msg,
+                          icon="error")
+            logging.error(error_msg)
 
     def update_data(self, ip_address):
         """Update the data for a device including power, voltage, current, and temperature."""
