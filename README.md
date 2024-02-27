@@ -28,6 +28,8 @@
 
 - matplotlib (for data visualization)
 
+- python-dotenv (to store environment variables)
+
 *Download and run:*
 
 `git clone https://github.com/krewshul/shelly_plug_monitor.git`
