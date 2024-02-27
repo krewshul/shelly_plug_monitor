@@ -3,6 +3,8 @@ Module: login_interface.py
 Description: GUI for device login info
 """
 
+import os
+from dotenv import load_dotenv
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 
@@ -82,26 +84,32 @@ class LoginUI:
     def login(self):
         """
         Method: login
-        Description: Writes login variables to "credentials.py".
+        Description: Writes login variables to ".env" file.
         """
         username = self.entry_username.get()
         password = self.entry_password.get()
         ip_addresses = self.get_ip_addresses()
 
         try:
-            with open("credentials.py", "w", encoding="utf-8") as file:
-                file.write(f'\n# Credentials for {username}\n')
-                file.write(f'USERNAME = "{username}"\n')
-                file.write(f'PASSWORD = "{password}"\n')
+            # Create or load existing .env file
+            load_dotenv()
+            
+            with open(".env", "w", encoding="utf-8") as file:
+                # Write username and password
+                file.write(f'USERNAME={username}\n')
+                file.write(f'PASSWORD={password}\n')
+
+                # Write IP addresses
                 for i, ip in enumerate(ip_addresses, start=1):
-                    file.write(f'IP_ADDRESS_{i} = "{ip}"\n')
+                    file.write(f'IP_ADDRESS_{i}={ip}\n')
+
             CTkMessagebox(master=self.master,
                           title="Success!",
                           message="Credentials have been updated!",
                           icon="check")
         except Exception as e:
             CTkMessagebox(title="Error!",
-                          message=f"Failed to update credentials file: {e}",
+                          message=f"Failed to update .env file: {e}",
                           icon="error")
 
 def main():
