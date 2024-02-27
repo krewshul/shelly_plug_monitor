@@ -1,10 +1,6 @@
-"""
-Module: shelly_monitor.py
-Description: A simple GUI application for Shelly Monitoring Tool.
-"""
-
 import os
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 
 def open_set_creds():
     """
@@ -18,13 +14,26 @@ def open_monitoring():
     Function: open_monitoring
     Description: Opens the monitoring functionality.
     """
-    os.system("python monitor.py")
+    if not check_env_file():
+        CTkMessagebox(title="Error!",
+                      message="No .env file found. Please set your credentials.",
+                      icon="cancel")
+    else:
+        os.system("python monitor.py")
+
+def check_env_file():
+    """
+    Function: check_env_file
+    Description: Checks if the .env file exists.
+    """
+    return os.path.exists(".env")
 
 def main():
     """
     Function: main
     Description: Sets up the main application window and buttons.
     """
+
     root = ctk.CTk()
     root.title("Shelly Monitoring Tool")
     root.geometry("300x100")
