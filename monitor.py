@@ -201,8 +201,8 @@ class MonitoringApp(ctk.CTk):
         self.main_frame.pack(fill="both", expand=True)
         self.tab_view = ctk.CTkTabview(self.main_frame)
         self.tab_view.pack(fill="both", expand=True)
-        self.text_areas = {}  # Dictionary to store text areas for each tab
         self.status_labels = {}  # Dictionary to store status labels for each tab
+        self.text_areas = {}  # Dictionary to store text areas for each tab
 
     def setup_logging(self):
         """Set up logging configuration."""
@@ -216,7 +216,7 @@ class MonitoringApp(ctk.CTk):
         try:
             load_dotenv()  # Load variables from .env file
             ip_addresses = [os.getenv(f'IP_ADDRESS_{i}') for i in range(1, 100) if os.getenv(f'IP_ADDRESS_{i}')]
-            
+
             if not ip_addresses:
                 self.display_no_ip_warning()
                 logging.warning("No IP addresses found in .env file.")
@@ -242,21 +242,27 @@ class MonitoringApp(ctk.CTk):
                                      text="Please set the IP addresses in your credentials file")
         message_label.pack(pady=20)
 
-    def display_credentials_error(self):
-        """Display an error when the credentials file is not found."""
-        error_label = ctk.CTkLabel(self.tab_view, text="Credentials file not found!")
-        error_label.pack(pady=20)
-
     def create_tab(self, ip_address):
-        """Create a tab for a device with text areas, status labels, and buttons."""
+        """Create a tab for a device with status labels and buttons."""
         tab = self.tab_view.add(ip_address)
         main_frame = ctk.CTkFrame(tab)
         main_frame.pack(fill="both", expand=True)
-        self.text_areas[ip_address] = ctk.CTkTextbox(main_frame)
-        self.text_areas[ip_address].pack(fill="both", expand=True)
         status_label = ctk.CTkLabel(main_frame, text="STATUS")
         status_label.pack(pady=5)
         self.status_labels[ip_address] = status_label
+
+        # Text areas for displaying device data
+        text_area_frame = ctk.CTkFrame(main_frame)
+        text_area_frame.pack(pady=5, padx=5)
+        self.text_areas[ip_address] = {}
+
+        labels = ["Watts", "Volts", "Amps", "Temp (C)", "Temp (F)"]
+        for i, label in enumerate(labels):
+            text_area_label = ctk.CTkLabel(text_area_frame, text=label + ": ")
+            text_area_label.grid(row=0, column=i*2, sticky="e", padx=5, pady=5, ipadx=5, ipady=5)
+            text_area = ctk.CTkTextbox(text_area_frame, width=75, height=1)
+            text_area.grid(row=0, column=i*2+1, sticky="w", padx=5, pady=5)
+            self.text_areas[ip_address][label] = text_area
 
         # Button to toggle switch
         toggle_button = ctk.CTkButton(tab,
@@ -306,6 +312,11 @@ class MonitoringApp(ctk.CTk):
         try:
             url = f"http://{ip_address}/rpc/Switch.GetStatus?id=0"
 
+            # Initialize lists to store data
+            apower_list = []  # List to store power consumption
+            voltage_list = []  # List to store voltage
+            current_list = []  # List to store current
+
             # Function to update the chart continuously
             def update_chart():
                 try:
@@ -313,43 +324,51 @@ class MonitoringApp(ctk.CTk):
                     data = response.json()
 
                     apower = data.get("apower")
+                    voltage = data.get("voltage")
+                    current = data.get("current")
 
                     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-
                     timestamps.append(timestamp)
-                    powers.append(apower)
+
+                    apower_list.append(apower)
+                    voltage_list.append(voltage)
+                    current_list.append(current)
 
                     if len(timestamps) > 12:
                         timestamps.pop(0)
-                        powers.pop(0)
+                        apower_list.pop(0)
+                        voltage_list.pop(0)
+                        current_list.pop(0)
 
                     ax.clear()
-                    ax.plot(timestamps, powers, marker='o', linestyle='-.')
-                    ax.set_xlabel("Date and Time")
-                    ax.set_ylabel("Power (WATTS)")
-                    ax.set_title("Power Chart")
+                  
+                    ax.plot(timestamps, apower_list, label="W", marker='x', linestyle='-')
+                    ax.plot(timestamps, voltage_list, label="V", marker='+', linestyle=':')
+                    ax.plot(timestamps, current_list, label="A", marker='o', linestyle='--')
+                    
+                    # Annotate each data point with its value
+                    for i in range(len(timestamps)):
+                        ax.annotate(f'{apower_list[i]:.2f}', (timestamps[i], apower_list[i]), textcoords="offset points", xytext=(0,10), ha='center')
+
+                    # Annotate each data point with its value for voltage
+                    for i in range(len(timestamps)):
+                        ax.annotate(f'{voltage_list[i]:.2f}', (timestamps[i], voltage_list[i]), textcoords="offset points", xytext=(0,10), ha='center')
+
+                    # Annotate each data point with its value for current
+                    for i in range(len(timestamps)):
+                        ax.annotate(f'{current_list[i]:.2f}', (timestamps[i], current_list[i]), textcoords="offset points", xytext=(0,10), ha='center')
+
+                    ax.set_xlabel(" ")
+                    ax.set_title(" ")
                     ax.spines['top'].set_visible(False)
-                    ax.spines['right'].set_visible(False)
-                    ax.spines['bottom'].set_visible(False)
-                    ax.spines['left'].set_visible(False)
+                    ax.spines['right'].set_visible(True)
+                    ax.spines['bottom'].set_visible(True)
+                    ax.spines['left'].set_visible(True)
                     ax.grid(False)
                     ax.figure.autofmt_xdate()
                     ax.set_facecolor('#333333')
-                    ax.set_ylim(bottom=0)
-                    ax.set_ylim(top=max(powers) + 250)
-
-                    for i, power in enumerate(powers):
-                        ax.text(timestamps[i],
-                                power,
-                                str(power),
-                                ha='center',
-                                va='bottom',
-                                color='white')
-
-                    l = ax.fill_between(timestamps, powers)
-                    l.set_facecolors([[.5,.5,.8,.3]])
-                    l.set_edgecolors([[0,0,.5,.3]])
-                    l.set_linewidths([3])
+                    
+                    ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1), borderaxespad=0., frameon=False)
 
                     canvas.draw()
 
@@ -366,7 +385,7 @@ class MonitoringApp(ctk.CTk):
             chart_button.pack_forget()
 
             chart_frame = ctk.CTkFrame(self.tab_view.tab(ip_address))
-            chart_frame.pack()
+            chart_frame.pack(fill="both")
 
             fig = Figure(figsize=(11, 4))
             ax = fig.add_subplot(211)
@@ -374,7 +393,6 @@ class MonitoringApp(ctk.CTk):
             plt.style.use('dark_background')
 
             timestamps = []
-            powers = []
 
             canvas = FigureCanvasTkAgg(fig, master=chart_frame)
             canvas.get_tk_widget().pack()
@@ -414,8 +432,25 @@ class MonitoringApp(ctk.CTk):
         temp_c = temperature.get('tC', 'N/A')
         temp_f = temperature.get('tF', 'N/A')
 
-        self.text_areas[ip_address].delete("1.0", "end")
-        self.text_areas[ip_address].insert("1.0", f"Watts: {apower}\nVolts: {voltage}\nAmps: {current}\nTemp (C): {temp_c}\nTemp (F): {temp_f}")
+        self.status_labels[ip_address].configure(text="STATUS")  # Update the status label
+        
+        # Update text areas
+        for label, text_area in self.text_areas[ip_address].items():
+            if label == "Watts":
+                text_area.delete("1.0", "end")
+                text_area.insert("1.0", apower)
+            elif label == "Volts":
+                text_area.delete("1.0", "end")
+                text_area.insert("1.0", voltage)
+            elif label == "Amps":
+                text_area.delete("1.0", "end")
+                text_area.insert("1.0", current)
+            elif label == "Temp (C)":
+                text_area.delete("1.0", "end")
+                text_area.insert("1.0", temp_c)
+            elif label == "Temp (F)":
+                text_area.delete("1.0", "end")
+                text_area.insert("1.0", temp_f)
 
         if '"output":true' in response.text:
             self.status_labels[ip_address].configure(text="OUTLET POWER IS ON")
