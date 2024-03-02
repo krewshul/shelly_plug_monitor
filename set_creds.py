@@ -1,8 +1,3 @@
-"""
-Module: login_interface.py
-Description: GUI for device login info
-"""
-
 import os
 from dotenv import load_dotenv
 import customtkinter as ctk
@@ -24,49 +19,66 @@ class LoginUI:
         self.master = master
         self.master.title("Set Credentials")
 
-        self.label_username = ctk.CTkLabel(master, text="Username:")
-        self.label_username.grid(row=0, column=0, padx=10, pady=5, sticky="e")
-        self.entry_username = ctk.CTkEntry(master)
-        self.entry_username.grid(row=0, column=1, padx=10, pady=5)
+        # Main frame
+        self.main_frame = ctk.CTkFrame(master, border_width=2, border_color="#1f538d")
+        self.main_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        master.grid_columnconfigure(0, weight=1)
+        master.grid_rowconfigure(0, weight=1)
 
-        self.label_password = ctk.CTkLabel(master, text="Password:")
-        self.label_password.grid(row=1, column=0, padx=10, pady=5, sticky="e")
-        self.entry_password = ctk.CTkEntry(master, show="*")
-        self.entry_password.grid(row=1, column=1, padx=10, pady=5)
+        # Frame for username and password
+        self.credentials_frame = ctk.CTkFrame(self.main_frame, corner_radius=10)
+        self.credentials_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        self.main_frame.grid_columnconfigure(0, weight=1)
+        self.main_frame.grid_rowconfigure(0, weight=1)
 
+        # Username label and entry
+        self.label_username = ctk.CTkLabel(self.credentials_frame, text="Username:")
+        self.label_username.grid(row=0, column=0, padx=10, pady=10, sticky="e")
+        self.entry_username = ctk.CTkEntry(self.credentials_frame, width=200)
+        self.entry_username.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
+
+        # Password label and entry
+        self.label_password = ctk.CTkLabel(self.credentials_frame, text="Password:")
+        self.label_password.grid(row=1, column=0, padx=10, pady=10, sticky="e")
+        self.entry_password = ctk.CTkEntry(self.credentials_frame, show="*", width=200)
+        self.entry_password.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+
+        # Adjusting for dynamic IP entry frames
         self.ip_entry_frames = []
 
-        self.button_add_ip = ctk.CTkButton(master,
-                                           fg_color="transparent",
-                                           border_width=2,
+        # Button to add IP address
+        self.button_add_ip = ctk.CTkButton(self.main_frame,
                                            text="Add IP Address",
+                                           corner_radius=8,
                                            command=self.add_ip_entry_frame)
-        self.button_add_ip.grid(row=2, column=1, pady=10, padx=5, sticky="news")
+        self.button_add_ip.grid(row=2, column=0, pady=10, padx=10, sticky="ew")
 
-        self.button_login = ctk.CTkButton(master,
-                                          fg_color="transparent",
-                                          border_width=2,
-                                          text="Update",
-                                          command=self.login)
-        self.button_login.grid(row=3, column=1, pady=10, padx=5, sticky="news")
+        # Update button
+        self.button_update = ctk.CTkButton(self.main_frame,
+                                           text="Update",
+                                           corner_radius=8,
+                                           command=self.update)
+        self.button_update.grid(row=3, column=0, pady=10, padx=10, sticky="ew")
+
+        # Make sure the credentials frame expands correctly
+        self.credentials_frame.grid_columnconfigure(1, weight=1)
 
     def add_ip_entry_frame(self):
         """
         Method: add_ip_entry_frame
         Description: Adds entry fields for IP addresses dynamically.
         """
-        ip_entry_frame = ctk.CTkFrame(self.master)
-        ip_entry_frame.grid(sticky="ew", padx=10, pady=5)
-        ip_entry = ctk.CTkEntry(ip_entry_frame)
-        ip_entry.grid(row=0, column=0, padx=5)
+        ip_entry_frame = ctk.CTkFrame(self.main_frame)
+        ip_entry_frame.grid(row=len(self.ip_entry_frames) + 3, column=0, sticky="ew", padx=10, pady=1)
+        ip_entry = ctk.CTkEntry(ip_entry_frame, width=320)
+        ip_entry.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         self.ip_entry_frames.append(ip_entry_frame)
 
-        self.button_login.grid_forget()  # Temporarily forget the "Login" button
-        for i, frame in enumerate(self.ip_entry_frames, start=3):
-            frame.grid(row=i, column=1, pady=5, sticky="ew")
-        self.button_login.grid(row=len(self.ip_entry_frames) + 3,
-                               column=1, pady=10,
-                               sticky="se")  # Re-add the "Login" button
+        # Ensure the main frame adjusts to new content
+        self.main_frame.grid_rowconfigure(len(self.ip_entry_frames) + 2, weight=1)
+
+        # Reposition the update button
+        self.button_update.grid(row=len(self.ip_entry_frames) + 3, pady=10, padx=10, sticky="ew")
 
     def get_ip_addresses(self):
         """
@@ -81,9 +93,9 @@ class LoginUI:
             ip_addresses.append(ip_entry.get())
         return ip_addresses
 
-    def login(self):
+    def update(self):
         """
-        Method: login
+        Method: update
         Description: Writes login variables to ".env" file.
         """
         username = self.entry_username.get()
@@ -117,8 +129,8 @@ def main():
     Function: main
     Description: Sets up the Tkinter application window.
     """
-    ctk.set_appearance_mode("dark")
-    ctk.set_default_color_theme("dark-blue")
+    ctk.set_appearance_mode("dark")  # Or "light" depending on your preference
+    ctk.set_default_color_theme("blue")  # Choose a color theme
     root = ctk.CTk()
     LoginUI(root)
     root.mainloop()
