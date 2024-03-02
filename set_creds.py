@@ -17,16 +17,16 @@ class LoginUI:
             - master: The master widget.
         """
         self.master = master
-        self.master.title("Set Credentials")
+        self.master.title(" ")
 
         # Main frame
         self.main_frame = ctk.CTkFrame(master, border_width=2, border_color="#1f538d")
-        self.main_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        self.main_frame.grid(row=0, column=0, padx=2, pady=2, sticky="nsew")
         master.grid_columnconfigure(0, weight=1)
         master.grid_rowconfigure(0, weight=1)
 
         # Frame for username and password
-        self.credentials_frame = ctk.CTkFrame(self.main_frame, corner_radius=10)
+        self.credentials_frame = ctk.CTkFrame(self.main_frame)
         self.credentials_frame.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
         self.main_frame.grid_columnconfigure(0, weight=1)
         self.main_frame.grid_rowconfigure(0, weight=1)
@@ -49,14 +49,16 @@ class LoginUI:
         # Button to add IP address
         self.button_add_ip = ctk.CTkButton(self.main_frame,
                                            text="Add IP Address",
-                                           corner_radius=8,
+                                           fg_color="#1f538d",
+                                           border_width=0,
                                            command=self.add_ip_entry_frame)
         self.button_add_ip.grid(row=2, column=0, pady=10, padx=10, sticky="ew")
 
         # Update button
         self.button_update = ctk.CTkButton(self.main_frame,
                                            text="Update",
-                                           corner_radius=8,
+                                           fg_color="#1f538d",
+                                           border_width=0,
                                            command=self.update)
         self.button_update.grid(row=3, column=0, pady=10, padx=10, sticky="ew")
 
