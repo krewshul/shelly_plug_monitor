@@ -26,7 +26,9 @@
 
 - requests (for making HTTP requests)
 
-- matplotlib (for data visualization)
+- plotly (for data visualization)
+
+- kaleido (for data visualization)
 
 - python-dotenv (to store environment variables)
 
