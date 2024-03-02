@@ -1,12 +1,12 @@
 import logging
 import os
+import io
 from dotenv import load_dotenv
 import requests 
 from PIL import Image
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 import plotly.graph_objects as go
-import io
 
 class ScheduleSettingWindow(ctk.CTkToplevel):
     """A window for setting schedules for a specific device."""
@@ -122,12 +122,12 @@ class MonitoringApp(ctk.CTk):
 
     def setup_ui(self):
         self.title("Device Monitoring")
-        self.main_frame = ctk.CTkFrame(self, border_width=1, border_color='#1f538d')
+        self.main_frame = ctk.CTkFrame(self, fg_color="black", border_width=1, border_color='#1f538d')
         self.main_frame.grid(row=0, column=0, sticky='nsew')  # Use grid instead of pack
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
         
-        self.tab_view = ctk.CTkTabview(self.main_frame, border_width=1, border_color='#1f538d')
+        self.tab_view = ctk.CTkTabview(self.main_frame, fg_color="black", border_width=1, border_color='#1f538d')
         self.tab_view.grid(row=0, column=0, sticky='nsew')  # Use grid instead of pack
         self.main_frame.grid_rowconfigure(0, weight=1)
         self.main_frame.grid_columnconfigure(0, weight=1)
@@ -155,8 +155,8 @@ class MonitoringApp(ctk.CTk):
                 self.create_tab(ip_address)
 
     def display_no_ip_warning(self):
-        message_label = ctk.CTkLabel(self.tab_view, text="No IP addresses found. Please check your .env file.")
-        message_label.pack(pady=20)
+        logging.error("No IP address found in .env file.")
+        CTkMessagebox(title="Error", message="No IP address foound in the .env file")
 
     def create_tab(self, ip_address):
         tab = self.tab_view.add(ip_address)
@@ -229,8 +229,6 @@ class MonitoringApp(ctk.CTk):
         except requests.RequestException as e:
             logging.error(f"Error getting switch status for {ip_address}: {e}")
             self.status_labels[ip_address].configure(text="Error fetching status")
-
-
 
     def open_schedule_window(self, ip_address):
         ScheduleSettingWindow(ip_address)
