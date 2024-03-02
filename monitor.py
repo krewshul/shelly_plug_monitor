@@ -199,7 +199,7 @@ class MonitoringApp(ctk.CTk):
         schedule_button.grid(row=0, column=0, columnspan=2, rowspan=1, pady=5, padx=5, sticky='nsew')
 
         # Initialize schedule button for this IP address
-        toggle_button = ctk.CTkButton(main_frame, text="Toggle Power", command=lambda addr=ip_address: self.toggle_switch(addr))
+        toggle_button = ctk.CTkButton(main_frame, text="Toggle Power", command=lambda addr=ip_address: self.toggle_switch(addr), corner_radius=360)
         toggle_button.grid(row=1, column=2, columnspan=1, rowspan=2, pady=5, padx=5, sticky='nsw')
         
         # Update data and switch status initially for this IP address
