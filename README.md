@@ -52,6 +52,7 @@
 Upon launching the application, you'll be prompted with 3 buttons: "Add IP Address", "Update", and "Begin Monitoring"
 
 1. Select "Add IP Address" and set the IP's of your devices. 
+
 ***NOTE: Currently password protected devices cannot be monitored. I am having issues with creating a schedule while the password is set. I am open for people to look into it.***
    
 2. After setting your IP Addresses, press "Update" to set your the IP's to your .env file.
