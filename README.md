@@ -1,6 +1,6 @@
 # Shelly Smart Plug US Monitoring and Scheduling App
 
-### This application allows users to monitor and control their Shelly Smart Plug US devices remotely.
+### This application allows users to monitor and control their Shelly Plus Plug US devices remotely.
 
 *Features:*
 
@@ -49,12 +49,14 @@
 
 `python start.py`
 
-Upon launching the application, you'll be prompted with 2 buttons: "Set Credentials" and "Begin Monitoring"
+Upon launching the application, you'll be prompted with 3 buttons: "Add IP Address", "Update", and "Begin Monitoring"
 
-1. Select "Set Credentials" and set your user name and the IP's of your devices. ***Currently username and password are not used. This will be implemented at a later date.***
+1. Select "Add IP Address" and set the IP's of your devices. ***NOTE: Currently password protected devices cannot be monitored. I am having issues with creating a schedule while the password is set. I am open for people to look into it.***
    
-2. After setting your credentials, press "Begin Monitoring" to start monitoring your devices.
+2. After setting your IP Addresses, press "Update" to set your the IP's to your .env file.
+
+3. Finally, press "Begin Monitoring" to start monitoring your devices.
    
-Once the credentials are set and monitoring begun, the application will display the devices and their status. You can interact with each device, view real-time data, and schedule automated tasks as needed.
+Once the IP's are set and monitoring begun, the application will display the devices and their status. You can interact with each device, view real-time data, and schedule automated tasks as needed.
 
 Use the buttons provided to toggle device power, create new schedules, view existing schedules, and chart power consumption trends.
