@@ -141,7 +141,7 @@ class MonitoringApp(ctk.CTk):
 
     def setup_main_frame(self):
         """Create and configure the main frame of the application."""
-        self.main_frame = ctk.CTkFrame(self, fg_color="black", border_width=1, border_color='#1f538d')
+        self.main_frame = ctk.CTkFrame(self, fg_color="#1a1a1a", border_width=1, border_color='#1f538d')
         self.main_frame.grid(row=0, column=0, sticky='nsew')
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -221,9 +221,9 @@ class MonitoringApp(ctk.CTk):
         labels = ["Watts", "Volts", "Amps", "Temp (C)", "Temp (F)"]
         for i, label in enumerate(labels):
             label_widget = ctk.CTkLabel(frame, text=f"{label}:")
-            label_widget.grid(row=0, column=i, sticky='ew', padx=5, pady=5)
-            text_area = ctk.CTkTextbox(frame, width=100, height=1)
-            text_area.grid(row=1, column=i, sticky='ew', padx=5, pady=5)
+            label_widget.grid(row=0, column=i, sticky='nsew', padx=5, pady=5)
+            text_area = ctk.CTkTextbox(frame, width=133, height=1)
+            text_area.grid(row=1, column=i, sticky='nsew', padx=5, pady=5)
             self.text_areas[ip_address][label] = text_area
 
     def setup_gauge_labels(self, ip_address, main_frame):
@@ -231,7 +231,9 @@ class MonitoringApp(ctk.CTk):
         if ip_address not in self.gauge_labels:
             self.gauge_labels[ip_address] = {}
         gauge_frame = ctk.CTkFrame(main_frame, border_width=1)
-        gauge_frame.grid(row=3, column=0, pady=5, padx=5, sticky='nsew', columnspan=5)
+        gauge_frame.grid(row=3, column=0, pady=5, padx=5, sticky='nsew')
+        gauge_title = ctk.CTkButton(gauge_frame, text="Live Monitoring", fg_color="transparent", anchor="center", border_width=1, border_color="#1f538d", state="disabled", text_color_disabled="white")
+        gauge_title.grid(row=1, column=0, sticky="s", columnspan=3, rowspan=1, padx=5)
         self.populate_gauge_labels(ip_address, gauge_frame)
 
     def populate_gauge_labels(self, ip_address, frame):
@@ -247,9 +249,51 @@ class MonitoringApp(ctk.CTk):
         schedule_button = ctk.CTkButton(main_frame, text="Set Schedule", command=lambda addr=ip_address: self.open_schedule_window(addr))
         schedule_button.grid(row=0, column=0, pady=5, padx=5, sticky='nsew')
 
-        toggle_button = ctk.CTkButton(main_frame, text="Toggle Power", command=lambda addr=ip_address: self.toggle_switch(addr))
-        toggle_button.grid(row=1, column=2, pady=5, padx=5, sticky='nsw')
+        toggle_button = ctk.CTkButton(main_frame, text="Toggle Power", fg_color="#1f538d", command=lambda addr=ip_address: self.toggle_switch(addr))
+        toggle_button.grid(row=1, column=2, pady=5, padx=5, sticky='nsew', rowspan=2)
 
+        # Frame for plotting history
+        history_frame = ctk.CTkFrame(main_frame, border_width=1)
+        history_frame.grid(row=3, column=2, pady=5, padx=5, sticky='nsew', columnspan=1)
+
+        plot_label = ctk.CTkLabel(history_frame, text="History")
+        plot_label.grid(row=0, column=0, pady=5, padx=5, sticky="nsew", columnspan=2)
+
+        # Entry for choosing from date
+        fd_entry_label = ctk.CTkLabel(history_frame, text="FROM:")
+        fd_entry_label.grid(row=1, column=0, pady=5, padx=5, sticky="nse")
+
+        fd_entry = ctk.CTkEntry(history_frame, placeholder_text="YYYY_MM_DD")
+        fd_entry.grid(row=1, column=1, pady=5, padx=5, sticky='nsew')
+
+        # Entry for choosing to date
+        td_entry_label = ctk.CTkLabel(history_frame, text="TO:")
+        td_entry_label.grid(row=2, column=0, pady=5, padx=5, sticky="nse")
+
+        td_entry = ctk.CTkEntry(history_frame, placeholder_text="YYYY_MM_DD")
+        td_entry.grid(row=2, column=1, pady=5, padx=5, sticky='nsew')
+
+        # Dropdown for choosing data type
+        data_type_label = ctk.CTkLabel(history_frame, text="Data Type:")
+        data_type_label.grid(row=3, column=0, pady=5, padx=5, sticky="nse")
+
+        combobox = ctk.CTkComboBox(history_frame,
+                                   values=["Volts", "Amps", "Watts"],
+                                   dropdown_fg_color="#1a1a1a")
+        combobox.grid(row=3, column=1, pady=5, padx=5)
+
+        # Button for additional action 1
+        button2 = ctk.CTkButton(history_frame, text="Select Data Type", command=lambda: self.button_action(ip_address, fd_entry.get(), td_entry.get(), combobox.get()))
+        button2.grid(row=4, column=0, pady=5, padx=5, sticky='nsew', columnspan=2)
+
+    def button_action(self, ip_address, fd_value, td_value, combo_value):
+        """Define actions for additional buttons."""
+        print("IP Address:", ip_address)
+        print("From Date Entry:", fd_value)
+        print("To Date Entry:", td_value)
+        print("Combobox Value:", combo_value)
+        pass
+      
     def toggle_switch(self, ip_address):
         """Toggle the switch of a device and update the status label."""
         try:
@@ -352,7 +396,7 @@ class MonitoringApp(ctk.CTk):
         label.configure(text="")  # Clear previous text
         img_bytes = fig.to_image(format="png")
         img = Image.open(io.BytesIO(img_bytes))
-        img_tk = ctk.CTkImage(dark_image=img, size=(230, 160))
+        img_tk = ctk.CTkImage(dark_image=img, size=(230,147))
         label.configure(image=img_tk)
         label.image = img_tk  # Keep a reference to avoid garbage collection
 
