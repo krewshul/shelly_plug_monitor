@@ -205,7 +205,7 @@ class MonitoringApp(ctk.CTk):
     def setup_status_label(self, ip_address, main_frame):
         """Initialize and place the status label for the given IP address."""
         if ip_address not in self.status_labels:
-            self.status_labels[ip_address] = ctk.CTkLabel(main_frame, text="Status: Unknown")
+            self.status_labels[ip_address] = ctk.CTkButton(main_frame, text="Status: Unknown", state="disabled", fg_color="transparent", text_color_disabled="white", border_width=1, border_color="#1f538d")
         self.status_labels[ip_address].grid(row=0, column=2, sticky='nsew', pady=5, padx=5)
 
     def setup_text_areas(self, ip_address, main_frame):
@@ -310,9 +310,9 @@ class MonitoringApp(ctk.CTk):
     def update_status_label_after_toggle(self, ip_address, response):
         """Update the status label based on the toggle switch response."""
         if '{"was_on":false}' in response.text:
-            self.status_labels[ip_address].configure(text="OUTLET POWER IS ON")
+            self.status_labels[ip_address].configure(text="OUTLET POWER IS ON", fg_color="green")
         elif '{"was_on":true}' in response.text:
-            self.status_labels[ip_address].configure(text="OUTLET POWER IS OFF")
+            self.status_labels[ip_address].configure(text="OUTLET POWER IS OFF", fg_color="red")
 
     def update_switch_status(self, ip_address):
         """Update the switch status label based on the device's current state."""
@@ -320,6 +320,8 @@ class MonitoringApp(ctk.CTk):
             response = self.send_device_command(ip_address, "Switch.GetStatus")
             is_on = response.json().get("output", False)  # Get the 'output' value, default to False if not found
             self.status_labels[ip_address].configure(text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF")
+            color = "green" if is_on else "red"
+            self.status_labels[ip_address].configure(text=text, fg_color=color)
         except requests.RequestException as e:
             self.handle_request_exception(ip_address, e)
 
@@ -361,7 +363,8 @@ class MonitoringApp(ctk.CTk):
     def update_status_label_from_data(self, ip_address, data):
         """Update the status label based on the device's power status."""
         is_on = data.get("output", False)
-        self.status_labels[ip_address].configure(text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF")
+        color = "green" if is_on else "red"
+        self.status_labels[ip_address].configure(text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF", fg_color=color)
 
     def update_gauge_charts(self, ip_address, power, current, voltage):
         """Update gauge charts with the latest data."""
