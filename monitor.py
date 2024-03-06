@@ -1,8 +1,10 @@
 import logging
 import os
 import io
+import time
 from dotenv import load_dotenv
-import requests 
+import requests
+import threading
 from PIL import Image
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
@@ -302,10 +304,19 @@ class MonitoringApp(ctk.CTk):
         except requests.RequestException as e:
             self.handle_request_exception(ip_address, e)
 
-    def send_device_command(self, ip_address, command):
-        """Send a command to the device and return the response."""
+    def send_device_command(self, ip_address, command, retries=3):
+        """Send a command to the device and return the response, with retries."""
         url = f"http://{ip_address}/rpc/{command}?id=0"
-        return requests.get(url, timeout=10)
+        for attempt in range(retries):
+            try:
+                return requests.get(url, timeout=10)
+            except requests.RequestException as e:
+                if attempt < retries - 1:  # If not the last attempt, wait and then try again
+                    time.sleep(1)  # Wait for 2 seconds before retrying
+                    continue
+                else:  # If the last attempt also fails, log the error and raise the exception
+                    logging.error(f"Error fetching data for {ip_address}: {e}")
+                    raise
 
     def update_status_label_after_toggle(self, ip_address, response):
         """Update the status label based on the toggle switch response."""
@@ -332,12 +343,20 @@ class MonitoringApp(ctk.CTk):
 
     def update_data(self, ip_address):
         """Fetch and display new data for the given IP address."""
-        try:
-            response = self.send_device_command(ip_address, "Switch.GetStatus")
-            if response.status_code == 200:
-                self.process_device_data(ip_address, response.json())
-        except requests.RequestException as e:
-            self.handle_request_exception(ip_address, e)
+        def fetch_data():
+            try:
+                response = self.send_device_command(ip_address, "Switch.GetStatus")
+                if response.status_code == 200:
+                    self.process_device_data(ip_address, response.json())
+            except requests.RequestException as e:
+                self.handle_request_exception(ip_address, e)
+                # Re-schedule the update after a delay if there's an error
+                self.after(5000, lambda: self.update_data(ip_address))
+
+        # Start fetching data in a new thread
+        thread = threading.Thread(target=fetch_data)
+        thread.daemon = True  # Daemonize thread
+        thread.start()
 
     def process_device_data(self, ip_address, data):
         """Process and display device data."""
