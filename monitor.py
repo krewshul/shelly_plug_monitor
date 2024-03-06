@@ -360,15 +360,28 @@ class MonitoringApp(ctk.CTk):
 
     def process_device_data(self, ip_address, data):
         """Process and display device data."""
-        device_metrics = {
-            "Watts": data.get("apower", "N/A"),
-            "Volts": data.get("voltage", "N/A"),
-            "Amps": data.get("current", "N/A"),
-            "Temp (C)": data.get("temperature", {}).get('tC', 'N/A'),
-            "Temp (F)": data.get("temperature", {}).get('tF', 'N/A')
+        # Define default metrics to be used if data fetch fails or is incomplete
+        default_metrics = {
+            "Watts": 0,
+            "Volts": 0,
+            "Amps": 0,
+            "Temp (C)": 0,
+            "Temp (F)": 0
         }
+        
+        if data:  # If there's valid data, update accordingly
+            device_metrics = {
+                "Watts": data.get("apower", 0),
+                "Volts": data.get("voltage", 0),
+                "Amps": data.get("current", 0),
+                "Temp (C)": data.get("temperature", {}).get('tC', 0),
+                "Temp (F)": data.get("temperature", {}).get('tF', 0)
+            }
+        else:  # If data is missing or fetch failed, use default metrics
+            device_metrics = default_metrics
+
         self.update_text_areas_with_data(ip_address, device_metrics)
-        self.update_status_label_from_data(ip_address, data)
+        self.update_status_label_from_data(ip_address, data if data else {})
         self.update_gauge_charts(ip_address, device_metrics["Watts"], device_metrics["Amps"], device_metrics["Volts"])
         self.schedule_data_update(ip_address)
 
@@ -426,10 +439,24 @@ class MonitoringApp(ctk.CTk):
         """Schedule the next data update for the given IP address."""
         self.after(1000, lambda: self.update_data(ip_address))
 
+    def set_device_data_to_zero(self, ip_address):
+        # Set text areas to zero
+        for metric in self.text_areas[ip_address]:
+            text_area = self.text_areas[ip_address][metric]
+            text_area.delete("1.0", "end")
+            text_area.insert("1.0", "0")
+        # Set gauge labels or charts to zero or clear them
+        for gauge_type in self.gauge_labels[ip_address]:
+            # This part depends on how you want to represent a disconnected state in your gauges.
+            # For simplicity, you might just update the label, but you could also update the gauge charts themselves.
+            self.gauge_labels[ip_address][gauge_type].configure(text=f"{gauge_type}: 0")
+
     def handle_request_exception(self, ip_address, e):
         """Log and display errors encountered when fetching data for a device."""
         logging.error(f"Error fetching data for {ip_address}: {e}")
-        self.status_labels[ip_address].configure(text="Error fetching data")
+        # Set UI elements to show '0' or 'Disconnected' or similar
+        self.set_device_data_to_zero(ip_address)
+        self.status_labels[ip_address].configure(text="Disconnected", fg_color="grey")
 
 
 if __name__ == "__main__":
