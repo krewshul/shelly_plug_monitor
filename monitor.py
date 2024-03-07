@@ -2,6 +2,7 @@ import logging
 import os
 import io
 import time
+import pprint
 from dotenv import load_dotenv
 import requests
 import threading
@@ -9,6 +10,8 @@ from PIL import Image
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 import plotly.graph_objects as go
+from pymongo import MongoClient
+from datetime import datetime
 
 class ScheduleSettingWindow(ctk.CTkToplevel):
     """A window for setting schedules for a specific device."""
@@ -280,22 +283,46 @@ class MonitoringApp(ctk.CTk):
         data_type_label.grid(row=3, column=0, pady=5, padx=5, sticky="nse")
 
         combobox = ctk.CTkComboBox(history_frame,
-                                   values=["Volts", "Amps", "Watts"],
+                                   values=["voltage", "current", "apower"],
                                    dropdown_fg_color="#1a1a1a")
         combobox.grid(row=3, column=1, pady=5, padx=5)
 
         # Button for additional action 1
-        button2 = ctk.CTkButton(history_frame, text="Select Data Type", command=lambda: self.button_action(ip_address, fd_entry.get(), td_entry.get(), combobox.get()))
+        button2 = ctk.CTkButton(history_frame, text="Select Data Type", command=lambda: self.button_action(ip_address, fd_entry.get(), combobox.get()))
         button2.grid(row=4, column=0, pady=5, padx=5, sticky='nsew', columnspan=2)
 
-    def button_action(self, ip_address, fd_value, td_value, combo_value):
-        """Define actions for additional buttons."""
-        print("IP Address:", ip_address)
-        print("From Date Entry:", fd_value)
-        print("To Date Entry:", td_value)
-        print("Combobox Value:", combo_value)
-        pass
-      
+    def format_ip_address(self, ip_address):
+        return ip_address.replace('.', '_')
+
+
+    def button_action(self, ip_address, fd_value, combo_value):
+        # Convert the IP address format and other initial setup
+        formatted_ip = self.format_ip_address(ip_address)
+
+        try:
+            # Attempt to connect to the MongoDB database
+            client = MongoClient('localhost', 27017)
+            db = client[formatted_ip]
+            collection_name = str(fd_value)
+            collection = db[collection_name]
+
+            # Execute the query to retrieve all documents in the collection
+            query_result = collection.find({})
+            results_found = False
+
+            for doc in query_result:
+                if combo_value in doc:
+                    # Print the document's relevant field value
+                    pprint.pprint({combo_value: doc[combo_value]})
+                else:
+                    pprint.pprint({"Message": f"Document does not contain the field '{combo_value}'"})
+
+            if not results_found:
+                print("No documents found in the collection")
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
     def toggle_switch(self, ip_address):
         """Toggle the switch of a device and update the status label."""
         try:
@@ -368,7 +395,7 @@ class MonitoringApp(ctk.CTk):
             "Temp (C)": 0,
             "Temp (F)": 0
         }
-        
+
         if data:  # If there's valid data, update accordingly
             device_metrics = {
                 "Watts": data.get("apower", 0),
