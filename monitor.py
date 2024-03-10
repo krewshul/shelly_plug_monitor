@@ -6,12 +6,13 @@ import pprint
 from dotenv import load_dotenv
 import requests
 import threading
-from PIL import Image
+from PIL import Image, ImageTk
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 import plotly.graph_objects as go
 from pymongo import MongoClient
 from datetime import datetime
+import ctypes
 
 class ScheduleSettingWindow(ctk.CTkToplevel):
     """A window for setting schedules for a specific device."""
@@ -210,8 +211,8 @@ class MonitoringApp(ctk.CTk):
     def setup_status_label(self, ip_address, main_frame):
         """Initialize and place the status label for the given IP address."""
         if ip_address not in self.status_labels:
-            self.status_labels[ip_address] = ctk.CTkButton(main_frame, text="Status: Unknown", state="disabled", fg_color="transparent", text_color_disabled="white", border_width=1, border_color="#1f538d")
-        self.status_labels[ip_address].grid(row=0, column=2, sticky='nsew', pady=5, padx=5)
+            self.status_labels[ip_address] = ctk.CTkButton(main_frame, text="Status: Unknown", fg_color="transparent", hover="disabled", border_width=1, border_color="#1f538d", command=lambda addr=ip_address: self.toggle_switch(addr))
+        self.status_labels[ip_address].grid(row=0, column=2, rowspan=3, sticky='nsew', pady=5, padx=5)
 
     def setup_text_areas(self, ip_address, main_frame):
         """Initialize and place text areas for device data for the given IP address."""
@@ -225,9 +226,9 @@ class MonitoringApp(ctk.CTk):
         """Create and grid text areas and labels for different types of device data."""
         labels = ["Watts", "Volts", "Amps", "Temp (C)", "Temp (F)"]
         for i, label in enumerate(labels):
-            label_widget = ctk.CTkLabel(frame, text=f"{label}:")
+            label_widget = ctk.CTkLabel(frame, text=f"{label}:", fg_color="#333", corner_radius=6)
             label_widget.grid(row=0, column=i, sticky='nsew', padx=5, pady=5)
-            text_area = ctk.CTkTextbox(frame, width=133, height=1)
+            text_area = ctk.CTkLabel(frame, text="", width=133, corner_radius=6, fg_color="black")
             text_area.grid(row=1, column=i, sticky='nsew', padx=5, pady=5)
             self.text_areas[ip_address][label] = text_area
 
@@ -253,9 +254,6 @@ class MonitoringApp(ctk.CTk):
         """Initialize and place control buttons for device operations."""
         schedule_button = ctk.CTkButton(main_frame, text="Set Schedule", command=lambda addr=ip_address: self.open_schedule_window(addr))
         schedule_button.grid(row=0, column=0, pady=5, padx=5, sticky='nsew')
-
-        toggle_button = ctk.CTkButton(main_frame, text="Toggle Power", fg_color="#1f538d", command=lambda addr=ip_address: self.toggle_switch(addr))
-        toggle_button.grid(row=1, column=2, pady=5, padx=5, sticky='nsew', rowspan=2)
 
         # Frame for plotting history
         history_frame = ctk.CTkFrame(main_frame, border_width=1)
@@ -314,6 +312,7 @@ class MonitoringApp(ctk.CTk):
                 if combo_value in doc:
                     # Print the document's relevant field value
                     pprint.pprint({combo_value: doc[combo_value]})
+                    results_found = False
                 else:
                     pprint.pprint({"Message": f"Document does not contain the field '{combo_value}'"})
 
@@ -339,7 +338,7 @@ class MonitoringApp(ctk.CTk):
                 return requests.get(url, timeout=10)
             except requests.RequestException as e:
                 if attempt < retries - 1:  # If not the last attempt, wait and then try again
-                    time.sleep(1)  # Wait for 2 seconds before retrying
+                    time.sleep(1)  # Wait for 1 seconds before retrying
                     continue
                 else:  # If the last attempt also fails, log the error and raise the exception
                     logging.error(f"Error fetching data for {ip_address}: {e}")
@@ -415,9 +414,8 @@ class MonitoringApp(ctk.CTk):
     def update_text_areas_with_data(self, ip_address, metrics):
         """Update the text areas with new device metrics."""
         for metric, value in metrics.items():
-            text_area = self.text_areas[ip_address][metric]
-            text_area.delete("1.0", "end")
-            text_area.insert("1.0", str(value))
+            value_label = self.text_areas[ip_address][metric]
+            value_label.configure(text=str(value))
 
     def update_status_label_from_data(self, ip_address, data):
         """Update the status label based on the device's power status."""
@@ -488,4 +486,14 @@ class MonitoringApp(ctk.CTk):
 
 if __name__ == "__main__":
     app = MonitoringApp()
+
+    myappid = "krewshul.monitoring_tool.shelly_smart_plug_us.1"
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    
+    icon = Image.open("icon.ico")
+    icon = ImageTk.PhotoImage(icon)
+    
+    app.iconphoto(True, icon)
+    
+    app.iconbitmap("icon.ico")
     app.mainloop()
