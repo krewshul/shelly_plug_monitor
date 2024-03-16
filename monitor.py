@@ -105,6 +105,7 @@ class ScheduleSettingWindow(ctk.CTkToplevel):
             timespec = f"0 {minute} {hour} * * {day}"
             params = '{"method":"switch.toggle","params":{"id":0}}'
             url = f"http://{self.ip_address}/rpc/Schedule.Create?timespec={timespec}&calls=[{params}]"
+            print(url)
             response = requests.get(url, timeout=10)
             data = response.json()
             if 'code' in data and data['code'] == -103:
@@ -224,7 +225,7 @@ class MonitoringApp(ctk.CTk):
 
     def populate_text_areas(self, ip_address, frame):
         """Create and grid text areas and labels for different types of device data."""
-        labels = ["Watts", "Volts", "Amps", "Temp (C)", "Temp (F)"]
+        labels = ["Watts", "Volts", "Amps", "WattHours (Total Wh)", "Temp (F)"]
         for i, label in enumerate(labels):
             label_widget = ctk.CTkLabel(frame, text=f"{label}:", fg_color="#333", corner_radius=6)
             label_widget.grid(row=0, column=i, sticky='nsew', padx=5, pady=5)
@@ -391,7 +392,7 @@ class MonitoringApp(ctk.CTk):
             "Watts": 0,
             "Volts": 0,
             "Amps": 0,
-            "Temp (C)": 0,
+            "WattHours (Total Wh)": 0,
             "Temp (F)": 0
         }
 
@@ -400,7 +401,7 @@ class MonitoringApp(ctk.CTk):
                 "Watts": data.get("apower", 0),
                 "Volts": data.get("voltage", 0),
                 "Amps": data.get("current", 0),
-                "Temp (C)": data.get("temperature", {}).get('tC', 0),
+                "WattHours (Total Wh)": data.get("aenergy", {}).get('total', 0),
                 "Temp (F)": data.get("temperature", {}).get('tF', 0)
             }
         else:  # If data is missing or fetch failed, use default metrics
