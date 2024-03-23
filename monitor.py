@@ -486,11 +486,4 @@ class MonitoringApp(ctk.CTk):
 
 if __name__ == "__main__":
     app = MonitoringApp()
-    
-    icon = Image.open("icon.ico")
-    icon = ImageTk.PhotoImage(icon)
-    
-    app.iconphoto(True, icon)
-    
-    app.iconbitmap("icon.ico")
     app.mainloop()
