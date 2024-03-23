@@ -4,3 +4,4 @@ kaleido
 plotly
 python-dotenv
 requests
+pymongo
