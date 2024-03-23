@@ -12,7 +12,6 @@ from CTkMessagebox import CTkMessagebox
 import plotly.graph_objects as go
 from pymongo import MongoClient
 from datetime import datetime
-import ctypes
 
 class ScheduleSettingWindow(ctk.CTkToplevel):
     """A window for setting schedules for a specific device."""
@@ -487,9 +486,6 @@ class MonitoringApp(ctk.CTk):
 
 if __name__ == "__main__":
     app = MonitoringApp()
-
-    myappid = "krewshul.monitoring_tool.shelly_smart_plug_us.1"
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     
     icon = Image.open("icon.ico")
     icon = ImageTk.PhotoImage(icon)
