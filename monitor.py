@@ -1,487 +1,771 @@
+import io
 import logging
 import os
-import io
-import time
-import pprint
-from dotenv import load_dotenv
-import requests
 import threading
-from PIL import Image, ImageTk
-import customtkinter as ctk
-from CTkMessagebox import CTkMessagebox
-import plotly.graph_objects as go
-from pymongo import MongoClient
+from collections import deque
 from datetime import datetime
 
-class ScheduleSettingWindow(ctk.CTkToplevel):
-    """A window for setting schedules for a specific device."""
-    
+import customtkinter as ctk
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
+from CTkMessagebox import CTkMessagebox
+from dotenv import load_dotenv
+from PIL import Image
+
+
+logging.basicConfig(
+    filename="monitoring.log",
+    level=logging.ERROR,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
+
+class ScheduleWindow(ctk.CTkToplevel):
     def __init__(self, ip_address):
         super().__init__()
         self.ip_address = ip_address
-        self.initialize_window()
-        self.setup_ui()
 
-    def initialize_window(self):
-        """Initialize window properties."""
-        self.title(f"Scheduling for {self.ip_address}")
+        self.title(f"Schedules - {ip_address}")
+        self.geometry("700x350")
         self.attributes("-topmost", True)
 
-    def setup_ui(self):
-        """Set up the user interface components for the scheduling window."""
-        self.setup_main_layout()
-        self.setup_create_schedule_section()
-        self.setup_delete_schedule_section()
-        self.setup_list_schedules_button()
-        self.setup_schedules_display()
+        self.main = ctk.CTkFrame(self)
+        self.main.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def setup_main_layout(self):
-        """Set up the main layout frames and global settings."""
-        self.main_frame = ctk.CTkFrame(self, border_color='#1f538d', border_width=1)
-        self.main_frame.grid(sticky="nsew")
-        label = ctk.CTkLabel(self.main_frame, text="Scheduling")
-        label.grid(row=0, column=0, columnspan=3, pady=10)
-        self.grid_columnconfigure(0, weight=1)  # Make the main frame expandable
+        ctk.CTkLabel(self.main, text="Create Toggle Schedule").grid(
+            row=0, column=0, columnspan=3, pady=5
+        )
 
-    def setup_create_schedule_section(self):
-        """Set up UI components for creating schedules."""
-        create_frame = ctk.CTkFrame(self.main_frame, border_width=1)
-        create_frame.grid(row=1, column=0, columnspan=3, padx=5, pady=5, sticky="nsew")
-        self.setup_time_input(create_frame, "Day", 1, 0, "1-7")
-        self.setup_time_input(create_frame, "Hour", 1, 1, "0-23")
-        self.setup_time_input(create_frame, "Minute", 1, 2, "0-59")
+        self.day_entry = ctk.CTkEntry(self.main, placeholder_text="Day 1-7")
+        self.hour_entry = ctk.CTkEntry(self.main, placeholder_text="Hour 0-23")
+        self.minute_entry = ctk.CTkEntry(self.main, placeholder_text="Minute 0-59")
 
-        create_button = ctk.CTkButton(create_frame, text="Create", command=self.create_schedule)
-        create_button.grid(row=3, column=1, padx=5, pady=5)
+        self.day_entry.grid(row=1, column=0, padx=5, pady=5)
+        self.hour_entry.grid(row=1, column=1, padx=5, pady=5)
+        self.minute_entry.grid(row=1, column=2, padx=5, pady=5)
 
-    def setup_time_input(self, frame, label_text, row, column, placeholder_text):
-        """Create label and entry for time input in the schedule creation section."""
-        label = ctk.CTkLabel(frame, text=f"{label_text}:")
-        label.grid(row=row, column=column, padx=5, pady=5)
-        entry = ctk.CTkEntry(frame, placeholder_text=placeholder_text)
-        entry.grid(row=row + 1, column=column, padx=5, pady=5)
-        setattr(self, f"{label_text.lower()}_entry", entry)
+        ctk.CTkButton(
+            self.main,
+            text="Create Toggle Schedule",
+            command=self.create_schedule,
+        ).grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
 
-    def setup_delete_schedule_section(self):
-        """Set up UI components for deleting schedules."""
-        delete_frame = ctk.CTkFrame(self.main_frame, border_width=1)
-        delete_frame.grid(row=1, column=3, padx=5, pady=5, sticky="nsew")
-        ctk.CTkLabel(delete_frame, text="Schedule Deletion").grid(row=0, padx=5, pady=5)
-        self.schedule_id_entry = ctk.CTkEntry(delete_frame, placeholder_text="JOB ID# of Schedule")
-        self.schedule_id_entry.grid(row=1, padx=5, pady=5)
+        self.delete_entry = ctk.CTkEntry(self.main, placeholder_text="Schedule ID")
+        self.delete_entry.grid(row=3, column=0, padx=5, pady=5)
 
-        delete_button = ctk.CTkButton(delete_frame, text="Delete Schedule", command=self.delete_schedule)
-        delete_button.grid(row=2, padx=5, pady=5)
+        ctk.CTkButton(
+            self.main,
+            text="Delete Schedule",
+            command=self.delete_schedule,
+        ).grid(row=3, column=1, padx=5, pady=5)
 
-    def setup_list_schedules_button(self):
-        """Set up the button to list all schedules."""
-        list_button = ctk.CTkButton(self.main_frame, text="List Schedules", command=self.list_schedules)
-        list_button.grid(row=0, column=3, padx=5, pady=5)
+        ctk.CTkButton(
+            self.main,
+            text="Refresh Schedule List",
+            command=self.list_schedules,
+        ).grid(row=3, column=2, padx=5, pady=5)
 
-    def setup_schedules_display(self):
-        """Set up the display area for listing schedules."""
-        self.schedule_text = ctk.CTkTextbox(self.main_frame, width=500, height=100)
-        self.schedule_text.grid(row=5, column=0, columnspan=4, padx=5, pady=5)
+        self.schedule_text = ctk.CTkTextbox(self.main, height=150)
+        self.schedule_text.grid(
+            row=4,
+            column=0,
+            columnspan=3,
+            padx=5,
+            pady=10,
+            sticky="nsew",
+        )
+
+        self.main.grid_columnconfigure((0, 1, 2), weight=1)
+        self.main.grid_rowconfigure(4, weight=1)
+
+        self.list_schedules()
+
+    def shelly_get(self, path, params=None):
+        response = requests.get(
+            f"http://{self.ip_address}/rpc/{path}",
+            params=params,
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
 
     def list_schedules(self):
-        """Fetches and displays a list of all schedules from the device."""
-        self.schedule_text.delete("1.0", "end")  # Clear existing text
+        self.schedule_text.delete("1.0", "end")
+
         try:
-            response = requests.get(f"http://{self.ip_address}/rpc/Schedule.List", timeout=10)
-            data = response.json()
-            self.schedule_text.insert("end", "List of schedules:\n")
-            for job in data.get('jobs', []):  # Safely handle missing jobs
-                job_details = f"Job ID: {job.get('id', 'N/A')}, Enable: {job.get('enable', 'N/A')}, "
-                job_details += f"Timespec: {job.get('timespec', 'N/A')}, Method: {job.get('calls', [{}])[0].get('method', 'N/A')}\n"
-                self.schedule_text.insert("end", job_details)
-        except requests.RequestException as e:
-            CTkMessagebox(title="Error", message=f"Failed to list schedules: {e}")
+            data = self.shelly_get("Schedule.List")
+            jobs = data.get("jobs", [])
+
+            if not jobs:
+                self.schedule_text.insert("end", "No schedules found.\n")
+                return
+
+            for job in jobs:
+                calls = job.get("calls", [])
+                method = calls[0].get("method", "N/A") if calls else "N/A"
+
+                self.schedule_text.insert(
+                    "end",
+                    f"ID: {job.get('id', 'N/A')} | "
+                    f"Enabled: {job.get('enable', 'N/A')} | "
+                    f"Time: {job.get('timespec', 'N/A')} | "
+                    f"Method: {method}\n",
+                )
+
+        except Exception as e:
+            CTkMessagebox(title="Error", message=f"Failed to list schedules:\n{e}")
 
     def create_schedule(self):
-        """Creates a schedule based on user input for day, hour, and minute."""
         try:
-            day, minute, hour = self.day_entry.get(), int(self.minute_entry.get()), int(self.hour_entry.get())
+            day = int(self.day_entry.get())
+            hour = int(self.hour_entry.get())
+            minute = int(self.minute_entry.get())
+
+            if not 1 <= day <= 7:
+                raise ValueError("Day must be 1 through 7.")
+            if not 0 <= hour <= 23:
+                raise ValueError("Hour must be 0 through 23.")
+            if not 0 <= minute <= 59:
+                raise ValueError("Minute must be 0 through 59.")
+
             timespec = f"0 {minute} {hour} * * {day}"
-            params = '{"method":"switch.toggle","params":{"id":0}}'
-            url = f"http://{self.ip_address}/rpc/Schedule.Create?timespec={timespec}&calls=[{params}]"
-            print(url)
-            response = requests.get(url, timeout=10)
-            data = response.json()
-            if 'code' in data and data['code'] == -103:
-                CTkMessagebox(title="Error", message=f"Failed to create schedule: {data.get('message', 'Unknown error')}")
-                logging.error(f"Failed to create schedule. {data.get('message', 'Unknown error')}")
-            else:
-                CTkMessagebox(title="Success", message="The schedule has been created successfully!")
-        except ValueError:
-            CTkMessagebox(title="Error", message="Failed to create a schedule: Please ensure all inputs are numbers.")
-            logging.error("Failed to create schedule due to invalid input.")
+            calls = '[{"method":"Switch.Toggle","params":{"id":0}}]'
+
+            data = self.shelly_get(
+                "Schedule.Create",
+                {
+                    "enable": "true",
+                    "timespec": timespec,
+                    "calls": calls,
+                },
+            )
+
+            if "code" in data:
+                raise RuntimeError(data.get("message", "Unknown schedule error"))
+
+            CTkMessagebox(title="Success", message="Schedule created.")
+            self.list_schedules()
+
+        except Exception as e:
+            CTkMessagebox(title="Error", message=f"Failed to create schedule:\n{e}")
 
     def delete_schedule(self):
-        """Deletes a schedule based on the provided schedule ID."""
         try:
-            schedule_id = int(self.schedule_id_entry.get())
-            response = requests.get(f"http://{self.ip_address}/rpc/Schedule.Delete?id={schedule_id}", timeout=10)
-            data = response.json()
-            if 'code' in data and data['code'] == -103:
-                CTkMessagebox(title="Warning", message="No schedule found with that ID.")
-            else:
-                CTkMessagebox(title="Success", message="Schedule deleted successfully!")
-        except ValueError:
-            CTkMessagebox(title="Error", message="Please enter a valid schedule ID number.")
+            schedule_id = int(self.delete_entry.get())
+            data = self.shelly_get("Schedule.Delete", {"id": schedule_id})
+
+            if "code" in data:
+                raise RuntimeError(data.get("message", "Unknown delete error"))
+
+            CTkMessagebox(title="Success", message="Schedule deleted.")
+            self.list_schedules()
+
+        except Exception as e:
+            CTkMessagebox(title="Error", message=f"Failed to delete schedule:\n{e}")
+
 
 class MonitoringApp(ctk.CTk):
-    """A monitoring application for controlling and monitoring devices."""
     def __init__(self):
         super().__init__()
-        self.setup_ui()
-        self.setup_logging()
-        self.read_credentials()
 
-    def setup_ui(self):
-        """Set up the user interface of the application."""
-        self.title("Device Monitoring")
-        self.setup_main_frame()
-        self.setup_tab_view()
-        self.initialize_data_containers()
-        self.configure_dark_mode()
+        self.title("Shelly Plug Monitor")
+        self.geometry("1200x800")
+        self.minsize(1000, 700)
 
-    def setup_main_frame(self):
-        """Create and configure the main frame of the application."""
-        self.main_frame = ctk.CTkFrame(self, fg_color="#1a1a1a", border_width=1, border_color='#1f538d')
-        self.main_frame.grid(row=0, column=0, sticky='nsew')
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)
-
-    def setup_tab_view(self):
-        """Create and configure the tab view in the main frame."""
-        self.tab_view = ctk.CTkTabview(self.main_frame, fg_color="black", border_width=1, border_color='#1f538d')
-        self.tab_view.grid(row=0, column=0, sticky='nsew')
-        self.main_frame.grid_rowconfigure(0, weight=1)
-        self.main_frame.grid_columnconfigure(0, weight=1)
-
-    def initialize_data_containers(self):
-        """Initialize containers for status labels, text areas, and gauge labels."""
-        self.status_labels = {}
-        self.text_areas = {}
-        self.gauge_labels = {}
-
-    def configure_dark_mode(self):
-        """Configure the application's appearance mode and color theme."""
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
 
-    def setup_logging(self):
-        """Set up logging for the application."""
-        logging.basicConfig(filename='monitoring.log', level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
+        self.status_labels = {}
+        self.metric_labels = {}
+        self.gauge_labels = {}
+        self.chart_labels = {}
+        self.last_seen_labels = {}
+        self.history = {}
 
-    def read_credentials(self):
-        """Read device IP addresses from the .env file and create tabs for each."""
-        load_dotenv()
-        ip_addresses = [os.getenv(f'IP_ADDRESS_{i}') for i in range(1, 100) if os.getenv(f'IP_ADDRESS_{i}')]
+        self.main = ctk.CTkFrame(
+            self,
+            fg_color="#111111",
+            border_width=1,
+            border_color="#1f538d",
+        )
+        self.main.pack(fill="both", expand=True, padx=10, pady=10)
+
+        self.tab_view = ctk.CTkTabview(
+            self.main,
+            fg_color="#050505",
+            segmented_button_fg_color="#222222",
+            segmented_button_selected_color="#1f538d",
+            segmented_button_selected_hover_color="#2867aa",
+            segmented_button_unselected_color="#111111",
+            segmented_button_unselected_hover_color="#333333",
+        )
+        self.tab_view.pack(fill="both", expand=True, padx=8, pady=8)
+
+        self.read_ips()
+
+    def read_ips(self):
+        load_dotenv(override=True)
+
+        ip_addresses = []
+
+        for i in range(1, 100):
+            ip = os.getenv(f"IP_ADDRESS_{i}")
+            if ip:
+                ip_addresses.append(ip.strip())
 
         if not ip_addresses:
-            self.display_no_ip_warning()
-        else:
-            for ip_address in ip_addresses:
-                self.create_tab(ip_address)
+            CTkMessagebox(title="Error", message="No IP addresses found in .env")
+            return
 
-    def display_no_ip_warning(self):
-        """Display a warning message and log if no IP addresses are found."""
-        logging.error("No IP address found in .env file.")
-        CTkMessagebox(title="Error", message="No IP addresses found in the .env file.")
+        for ip_address in ip_addresses:
+            self.create_device_tab(ip_address)
 
-    def create_tab(self, ip_address):
-        """Create a new tab for the given IP address and initialize its content."""
+    def create_device_tab(self, ip_address):
         tab = self.tab_view.add(ip_address)
-        main_frame = self.setup_tab_main_frame(tab)
-        self.setup_status_label(ip_address, main_frame)
-        self.setup_text_areas(ip_address, main_frame)
-        self.setup_gauge_labels(ip_address, main_frame)
-        self.setup_control_buttons(ip_address, main_frame)
-        self.update_data(ip_address)
 
-    def setup_tab_main_frame(self, tab):
-        """Create and configure the main frame within a tab."""
-        main_frame = ctk.CTkFrame(tab)
-        main_frame.grid(row=0, column=0, sticky='nsew')
-        tab.grid_rowconfigure(0, weight=1)
-        tab.grid_columnconfigure(0, weight=1)
-        return main_frame
+        self.history[ip_address] = {
+            "times": deque(maxlen=40),
+            "watts": deque(maxlen=40),
+            "amps": deque(maxlen=40),
+            "volts": deque(maxlen=40),
+        }
 
-    def setup_status_label(self, ip_address, main_frame):
-        """Initialize and place the status label for the given IP address."""
-        if ip_address not in self.status_labels:
-            self.status_labels[ip_address] = ctk.CTkButton(main_frame, text="Status: Unknown", fg_color="transparent", hover="disabled", border_width=1, border_color="#1f538d", command=lambda addr=ip_address: self.toggle_switch(addr))
-        self.status_labels[ip_address].grid(row=0, column=2, rowspan=3, sticky='nsew', pady=5, padx=5)
+        frame = ctk.CTkFrame(tab, fg_color="#111111")
+        frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def setup_text_areas(self, ip_address, main_frame):
-        """Initialize and place text areas for device data for the given IP address."""
-        if ip_address not in self.text_areas:
-            self.text_areas[ip_address] = {}
-        text_area_frame = ctk.CTkFrame(main_frame, border_width=1)
-        text_area_frame.grid(row=1, column=0, pady=5, padx=5, sticky='nsew')
-        self.populate_text_areas(ip_address, text_area_frame)
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_columnconfigure(1, weight=1)
+        frame.grid_columnconfigure(2, weight=1)
+        frame.grid_rowconfigure(3, weight=2)
 
-    def populate_text_areas(self, ip_address, frame):
-        """Create and grid text areas and labels for different types of device data."""
-        labels = ["Watts", "Volts", "Amps", "WattHours (Total Wh)", "Temp (F)"]
-        for i, label in enumerate(labels):
-            label_widget = ctk.CTkLabel(frame, text=f"{label}:", fg_color="#333", corner_radius=6)
-            label_widget.grid(row=0, column=i, sticky='nsew', padx=5, pady=5)
-            text_area = ctk.CTkLabel(frame, text="", width=133, corner_radius=6, fg_color="black")
-            text_area.grid(row=1, column=i, sticky='nsew', padx=5, pady=5)
-            self.text_areas[ip_address][label] = text_area
+        self.status_labels[ip_address] = ctk.CTkButton(
+            frame,
+            text="Status: Unknown",
+            command=lambda ip=ip_address: self.toggle_switch(ip),
+            height=64,
+            font=("Arial", 22, "bold"),
+            border_width=1,
+            border_color="#1f538d",
+        )
+        self.status_labels[ip_address].grid(
+            row=0,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=6,
+            sticky="ew",
+        )
 
-    def setup_gauge_labels(self, ip_address, main_frame):
-        """Initialize and place gauge labels for the given IP address."""
-        if ip_address not in self.gauge_labels:
-            self.gauge_labels[ip_address] = {}
-        gauge_frame = ctk.CTkFrame(main_frame, border_width=1)
-        gauge_frame.grid(row=3, column=0, pady=5, padx=5, sticky='nsew')
-        gauge_title = ctk.CTkButton(gauge_frame, text="Live Monitoring", fg_color="transparent", anchor="center", border_width=1, border_color="#1f538d", state="disabled", text_color_disabled="white")
-        gauge_title.grid(row=1, column=0, sticky="s", columnspan=3, rowspan=1, padx=5)
-        self.populate_gauge_labels(ip_address, gauge_frame)
+        metrics_frame = ctk.CTkFrame(
+            frame,
+            fg_color="#181818",
+            border_width=1,
+            border_color="#333333",
+        )
+        metrics_frame.grid(
+            row=1,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=6,
+            sticky="ew",
+        )
 
-    def populate_gauge_labels(self, ip_address, frame):
-        """Create and grid labels for different types of gauges."""
-        gauge_types = ["Power (W)", "Current (A)", "Voltage (V)"]
-        for i, gauge_type in enumerate(gauge_types):
-            gauge_label = ctk.CTkLabel(frame, text=gauge_type)
-            gauge_label.grid(row=0, column=i, sticky='nsew', padx=5, pady=5)
-            self.gauge_labels[ip_address][gauge_type] = gauge_label
+        metrics = ["Watts", "Volts", "Amps", "WattHours", "Temp F"]
+        self.metric_labels[ip_address] = {}
 
-    def setup_control_buttons(self, ip_address, main_frame):
-        """Initialize and place control buttons for device operations."""
-        schedule_button = ctk.CTkButton(main_frame, text="Set Schedule", command=lambda addr=ip_address: self.open_schedule_window(addr))
-        schedule_button.grid(row=0, column=0, pady=5, padx=5, sticky='nsew')
+        for index, metric in enumerate(metrics):
+            metrics_frame.grid_columnconfigure(index, weight=1)
 
-        # Frame for plotting history
-        history_frame = ctk.CTkFrame(main_frame, border_width=1)
-        history_frame.grid(row=3, column=2, pady=5, padx=5, sticky='nsew', columnspan=1)
+            card = ctk.CTkFrame(
+                metrics_frame,
+                fg_color="#0b0b0b",
+                border_width=1,
+                border_color="#333333",
+            )
+            card.grid(row=0, column=index, padx=6, pady=6, sticky="ew")
 
-        plot_label = ctk.CTkLabel(history_frame, text="History")
-        plot_label.grid(row=0, column=0, pady=5, padx=5, sticky="nsew", columnspan=2)
+            ctk.CTkLabel(
+                card,
+                text=metric,
+                font=("Arial", 13, "bold"),
+                text_color="#9cc8ff",
+            ).pack(padx=8, pady=(8, 2))
 
-        # Entry for choosing from date
-        fd_entry_label = ctk.CTkLabel(history_frame, text="FROM:")
-        fd_entry_label.grid(row=1, column=0, pady=5, padx=5, sticky="nse")
+            value_label = ctk.CTkLabel(
+                card,
+                text="0",
+                font=("Arial", 24, "bold"),
+                text_color="white",
+            )
+            value_label.pack(padx=8, pady=(2, 8))
 
-        fd_entry = ctk.CTkEntry(history_frame, placeholder_text="YYYY_MM_DD")
-        fd_entry.grid(row=1, column=1, pady=5, padx=5, sticky='nsew')
+            self.metric_labels[ip_address][metric] = value_label
 
-        # Entry for choosing to date
-        td_entry_label = ctk.CTkLabel(history_frame, text="TO:")
-        td_entry_label.grid(row=2, column=0, pady=5, padx=5, sticky="nse")
+        gauges_frame = ctk.CTkFrame(
+            frame,
+            fg_color="#181818",
+            border_width=1,
+            border_color="#333333",
+        )
+        gauges_frame.grid(
+            row=2,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=6,
+            sticky="ew",
+        )
 
-        td_entry = ctk.CTkEntry(history_frame, placeholder_text="YYYY_MM_DD")
-        td_entry.grid(row=2, column=1, pady=5, padx=5, sticky='nsew')
+        gauges_frame.grid_columnconfigure(0, weight=1)
+        gauges_frame.grid_columnconfigure(1, weight=1)
+        gauges_frame.grid_columnconfigure(2, weight=1)
 
-        # Dropdown for choosing data type
-        data_type_label = ctk.CTkLabel(history_frame, text="Data Type:")
-        data_type_label.grid(row=3, column=0, pady=5, padx=5, sticky="nse")
+        self.gauge_labels[ip_address] = {}
 
-        combobox = ctk.CTkComboBox(history_frame,
-                                   values=["voltage", "current", "apower"],
-                                   dropdown_fg_color="#1a1a1a")
-        combobox.grid(row=3, column=1, pady=5, padx=5)
+        for index, gauge_name in enumerate(["Power W", "Current A", "Voltage V"]):
+            gauge_label = ctk.CTkLabel(
+                gauges_frame,
+                text=gauge_name,
+                fg_color="#050505",
+                corner_radius=8,
+            )
+            gauge_label.grid(row=0, column=index, padx=6, pady=6, sticky="nsew")
+            self.gauge_labels[ip_address][gauge_name] = gauge_label
 
-        # Button for additional action 1
-        button2 = ctk.CTkButton(history_frame, text="Select Data Type", command=lambda: self.button_action(ip_address, fd_entry.get(), combobox.get()))
-        button2.grid(row=4, column=0, pady=5, padx=5, sticky='nsew', columnspan=2)
+        chart_frame = ctk.CTkFrame(
+            frame,
+            fg_color="#181818",
+            border_width=1,
+            border_color="#333333",
+        )
+        chart_frame.grid(
+            row=3,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=6,
+            sticky="nsew",
+        )
+        chart_frame.grid_columnconfigure(0, weight=1)
+        chart_frame.grid_rowconfigure(0, weight=1)
 
-    def format_ip_address(self, ip_address):
-        return ip_address.replace('.', '_')
+        self.chart_labels[ip_address] = ctk.CTkLabel(
+            chart_frame,
+            text="Live history chart loading...",
+            fg_color="#050505",
+            corner_radius=8,
+        )
+        self.chart_labels[ip_address].grid(
+            row=0,
+            column=0,
+            padx=6,
+            pady=6,
+            sticky="nsew",
+        )
 
+        buttons_frame = ctk.CTkFrame(
+            frame,
+            fg_color="#181818",
+            border_width=1,
+            border_color="#333333",
+        )
+        buttons_frame.grid(
+            row=4,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=6,
+            sticky="ew",
+        )
 
-    def button_action(self, ip_address, fd_value, combo_value):
-        # Convert the IP address format and other initial setup
-        formatted_ip = self.format_ip_address(ip_address)
+        buttons_frame.grid_columnconfigure(0, weight=1)
+        buttons_frame.grid_columnconfigure(1, weight=1)
+        buttons_frame.grid_columnconfigure(2, weight=1)
 
-        try:
-            # Attempt to connect to the MongoDB database
-            client = MongoClient('localhost', 27017)
-            db = client[formatted_ip]
-            collection_name = str(fd_value)
-            collection = db[collection_name]
+        ctk.CTkButton(
+            buttons_frame,
+            text="Set Schedule",
+            command=lambda ip=ip_address: ScheduleWindow(ip),
+        ).grid(row=0, column=0, padx=6, pady=8, sticky="ew")
 
-            # Execute the query to retrieve all documents in the collection
-            query_result = collection.find({})
-            results_found = False
+        ctk.CTkButton(
+            buttons_frame,
+            text="Turn On",
+            command=lambda ip=ip_address: self.set_switch(ip, True),
+        ).grid(row=0, column=1, padx=6, pady=8, sticky="ew")
 
-            for doc in query_result:
-                if combo_value in doc:
-                    # Print the document's relevant field value
-                    pprint.pprint({combo_value: doc[combo_value]})
-                    results_found = False
-                else:
-                    pprint.pprint({"Message": f"Document does not contain the field '{combo_value}'"})
+        ctk.CTkButton(
+            buttons_frame,
+            text="Turn Off",
+            command=lambda ip=ip_address: self.set_switch(ip, False),
+        ).grid(row=0, column=2, padx=6, pady=8, sticky="ew")
 
-            if not results_found:
-                print("No documents found in the collection")
+        self.last_seen_labels[ip_address] = ctk.CTkLabel(
+            frame,
+            text="Last update: never",
+            text_color="#bbbbbb",
+        )
+        self.last_seen_labels[ip_address].grid(
+            row=5,
+            column=0,
+            columnspan=3,
+            padx=6,
+            pady=(2, 6),
+            sticky="w",
+        )
 
-        except Exception as e:
-            print(f"An error occurred: {e}")
+        self.update_gauge_charts(ip_address, 0, 0, 0)
+        self.update_history_chart(ip_address)
+        self.update_device(ip_address)
+
+    def shelly_get(self, ip_address, path, params=None):
+        response = requests.get(
+            f"http://{ip_address}/rpc/{path}",
+            params=params,
+            timeout=5,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def set_switch(self, ip_address, enabled):
+        def worker():
+            try:
+                self.shelly_get(
+                    ip_address,
+                    "Switch.Set",
+                    {
+                        "id": 0,
+                        "on": "true" if enabled else "false",
+                    },
+                )
+
+                data = self.shelly_get(ip_address, "Switch.GetStatus", {"id": 0})
+                self.after(0, lambda: self.apply_device_data(ip_address, data))
+
+            except Exception as e:
+                self.after(0, lambda: self.mark_disconnected(ip_address, e))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def toggle_switch(self, ip_address):
-        """Toggle the switch of a device and update the status label."""
-        try:
-            response = self.send_device_command(ip_address, "Switch.Toggle")
-            self.update_status_label_after_toggle(ip_address, response)
-        except requests.RequestException as e:
-            self.handle_request_exception(ip_address, e)
-
-    def send_device_command(self, ip_address, command, retries=3):
-        """Send a command to the device and return the response, with retries."""
-        url = f"http://{ip_address}/rpc/{command}?id=0"
-        for attempt in range(retries):
+        def worker():
             try:
-                return requests.get(url, timeout=10)
-            except requests.RequestException as e:
-                if attempt < retries - 1:  # If not the last attempt, wait and then try again
-                    time.sleep(1)  # Wait for 1 seconds before retrying
-                    continue
-                else:  # If the last attempt also fails, log the error and raise the exception
-                    logging.error(f"Error fetching data for {ip_address}: {e}")
-                    raise
+                self.shelly_get(ip_address, "Switch.Toggle", {"id": 0})
+                data = self.shelly_get(ip_address, "Switch.GetStatus", {"id": 0})
+                self.after(0, lambda: self.apply_device_data(ip_address, data))
 
-    def update_status_label_after_toggle(self, ip_address, response):
-        """Update the status label based on the toggle switch response."""
-        if '{"was_on":false}' in response.text:
-            self.status_labels[ip_address].configure(text="OUTLET POWER IS ON", fg_color="green")
-        elif '{"was_on":true}' in response.text:
-            self.status_labels[ip_address].configure(text="OUTLET POWER IS OFF", fg_color="red")
+            except Exception as e:
+                self.after(0, lambda: self.mark_disconnected(ip_address, e))
 
-    def update_switch_status(self, ip_address):
-        """Update the switch status label based on the device's current state."""
-        try:
-            response = self.send_device_command(ip_address, "Switch.GetStatus")
-            is_on = response.json().get("output", False)  # Get the 'output' value, default to False if not found
-            self.status_labels[ip_address].configure(text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF")
-            color = "green" if is_on else "red"
-            self.status_labels[ip_address].configure(text=text, fg_color=color)
-        except requests.RequestException as e:
-            self.handle_request_exception(ip_address, e)
+        threading.Thread(target=worker, daemon=True).start()
 
-    def open_schedule_window(self, ip_address):
-        """Open the schedule setting window for the given IP address."""
-        ScheduleSettingWindow(ip_address)
-        pass
-
-    def update_data(self, ip_address):
-        """Fetch and display new data for the given IP address."""
-        def fetch_data():
+    def update_device(self, ip_address):
+        def worker():
             try:
-                response = self.send_device_command(ip_address, "Switch.GetStatus")
-                if response.status_code == 200:
-                    self.process_device_data(ip_address, response.json())
-            except requests.RequestException as e:
-                self.handle_request_exception(ip_address, e)
-                # Re-schedule the update after a delay if there's an error
-                self.after(5000, lambda: self.update_data(ip_address))
+                data = self.shelly_get(ip_address, "Switch.GetStatus", {"id": 0})
+                self.after(0, lambda: self.apply_device_data(ip_address, data))
 
-        # Start fetching data in a new thread
-        thread = threading.Thread(target=fetch_data)
-        thread.daemon = True  # Daemonize thread
-        thread.start()
+            except Exception as e:
+                self.after(0, lambda: self.mark_disconnected(ip_address, e))
 
-    def process_device_data(self, ip_address, data):
-        """Process and display device data."""
-        # Define default metrics to be used if data fetch fails or is incomplete
-        default_metrics = {
-            "Watts": 0,
-            "Volts": 0,
-            "Amps": 0,
-            "WattHours (Total Wh)": 0,
-            "Temp (F)": 0
+            finally:
+                self.after(3000, lambda: self.update_device(ip_address))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def apply_device_data(self, ip_address, data):
+        is_on = bool(data.get("output", False))
+
+        self.status_labels[ip_address].configure(
+            text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF",
+            fg_color="#008f39" if is_on else "#8f0000",
+            hover_color="#00aa44" if is_on else "#aa0000",
+        )
+
+        watts = self.safe_float(data.get("apower", 0))
+        volts = self.safe_float(data.get("voltage", 0))
+        amps = self.safe_float(data.get("current", 0))
+        watt_hours = self.safe_float(data.get("aenergy", {}).get("total", 0))
+        temp_f = self.safe_float(data.get("temperature", {}).get("tF", 0))
+
+        values = {
+            "Watts": watts,
+            "Volts": volts,
+            "Amps": amps,
+            "WattHours": watt_hours,
+            "Temp F": temp_f,
         }
 
-        if data:  # If there's valid data, update accordingly
-            device_metrics = {
-                "Watts": data.get("apower", 0),
-                "Volts": data.get("voltage", 0),
-                "Amps": data.get("current", 0),
-                "WattHours (Total Wh)": data.get("aenergy", {}).get('total', 0),
-                "Temp (F)": data.get("temperature", {}).get('tF', 0)
-            }
-        else:  # If data is missing or fetch failed, use default metrics
-            device_metrics = default_metrics
+        for key, value in values.items():
+            self.metric_labels[ip_address][key].configure(
+                text=self.format_number(value)
+            )
 
-        self.update_text_areas_with_data(ip_address, device_metrics)
-        self.update_status_label_from_data(ip_address, data if data else {})
-        self.update_gauge_charts(ip_address, device_metrics["Watts"], device_metrics["Amps"], device_metrics["Volts"])
-        self.schedule_data_update(ip_address)
+        now = datetime.now()
 
-    def update_text_areas_with_data(self, ip_address, metrics):
-        """Update the text areas with new device metrics."""
-        for metric, value in metrics.items():
-            value_label = self.text_areas[ip_address][metric]
-            value_label.configure(text=str(value))
+        self.history[ip_address]["times"].append(now.strftime("%H:%M:%S"))
+        self.history[ip_address]["watts"].append(watts)
+        self.history[ip_address]["amps"].append(amps)
+        self.history[ip_address]["volts"].append(volts)
 
-    def update_status_label_from_data(self, ip_address, data):
-        """Update the status label based on the device's power status."""
-        is_on = data.get("output", False)
-        color = "green" if is_on else "red"
-        self.status_labels[ip_address].configure(text="OUTLET POWER IS ON" if is_on else "OUTLET POWER IS OFF", fg_color=color)
+        self.update_gauge_charts(ip_address, watts, amps, volts)
+        self.update_history_chart(ip_address)
 
-    def update_gauge_charts(self, ip_address, power, current, voltage):
-        """Update gauge charts with the latest data."""
-        gauges = {
-            "Power (W)": (power, 2000),
-            "Current (A)": (current, 20),
-            "Voltage (V)": (voltage, 240)
-        }
-        for gauge_type, (value, max_value) in gauges.items():
-            self.update_gauge_chart(value, self.gauge_labels[ip_address][gauge_type], gauge_type, max_value)
+        self.last_seen_labels[ip_address].configure(
+            text=f"Last update: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
 
-    def update_gauge_chart(self, value, label, title, max_value):
-        """Update a single gauge chart."""
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=value,
-            title={'text': title, 'font': {'color': 'white', 'size': 36}, 'align': 'left'},
-            gauge={
-                'axis': {'range': [None, max_value], 'showticklabels': True, 'tickcolor': "white", 'tickfont': {'color': 'white', 'size': 16}},
-                'bar': {'color': "#1f538d"},
-                'bgcolor': "#333333",
-                'steps': [{'range': [0, max_value * 0.5], 'color': "lightgray"}, {'range': [max_value * 0.5, max_value], 'color': "gray"}],
-                'threshold': {'line': {'color': "black", 'width': 2}, 'thickness': 1, 'value': value}
-            },
-            number={'font': {'color': 'white', 'size': 75}}
-        ))
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin={'t': 20, 'b': 20, 'l': 50, 'r': 50})
-        self.display_gauge_chart(fig, label)
+    def update_gauge_charts(self, ip_address, watts, amps, volts):
+        self.render_gauge(
+            label=self.gauge_labels[ip_address]["Power W"],
+            value=watts,
+            max_value=2000,
+            title="Power",
+            unit="W",
+        )
 
-    def display_gauge_chart(self, fig, label):
-        """Display the gauge chart on the specified label."""
-        label.configure(text="")  # Clear previous text
-        img_bytes = fig.to_image(format="png")
-        img = Image.open(io.BytesIO(img_bytes))
-        img_tk = ctk.CTkImage(dark_image=img, size=(230,147))
-        label.configure(image=img_tk)
-        label.image = img_tk  # Keep a reference to avoid garbage collection
+        self.render_gauge(
+            label=self.gauge_labels[ip_address]["Current A"],
+            value=amps,
+            max_value=20,
+            title="Current",
+            unit="A",
+        )
 
-    def schedule_data_update(self, ip_address):
-        """Schedule the next data update for the given IP address."""
-        self.after(1000, lambda: self.update_data(ip_address))
+        self.render_gauge(
+            label=self.gauge_labels[ip_address]["Voltage V"],
+            value=volts,
+            max_value=250,
+            title="Voltage",
+            unit="V",
+        )
 
-    def set_device_data_to_zero(self, ip_address):
-        # Set text areas to zero
-        for metric in self.text_areas[ip_address]:
-            text_area = self.text_areas[ip_address][metric]
-            text_area.delete("1.0", "end")
-            text_area.insert("1.0", "0")
-        # Set gauge labels or charts to zero or clear them
-        for gauge_type in self.gauge_labels[ip_address]:
-            # This part depends on how you want to represent a disconnected state in your gauges.
-            # For simplicity, you might just update the label, but you could also update the gauge charts themselves.
-            self.gauge_labels[ip_address][gauge_type].configure(text=f"{gauge_type}: 0")
+    def render_gauge(self, label, value, max_value, title, unit):
+        try:
+            value = self.safe_float(value)
+            percent = min(max(value / max_value, 0), 1)
 
-    def handle_request_exception(self, ip_address, e):
-        """Log and display errors encountered when fetching data for a device."""
-        logging.error(f"Error fetching data for {ip_address}: {e}")
-        # Set UI elements to show '0' or 'Disconnected' or similar
-        self.set_device_data_to_zero(ip_address)
-        self.status_labels[ip_address].configure(text="Disconnected", fg_color="grey")
+            fig, ax = plt.subplots(figsize=(3.3, 2.1), dpi=100)
+            fig.patch.set_facecolor("#050505")
+            ax.set_facecolor("#050505")
+
+            ax.set_xlim(-1.2, 1.2)
+            ax.set_ylim(-0.25, 1.25)
+            ax.axis("off")
+
+            theta = np.linspace(180, 0, 120)
+            x = np.cos(np.deg2rad(theta))
+            y = np.sin(np.deg2rad(theta))
+
+            ax.plot(x, y, linewidth=18, solid_capstyle="round", color="#333333")
+
+            active_theta = np.linspace(180, 180 - (180 * percent), 120)
+            active_x = np.cos(np.deg2rad(active_theta))
+            active_y = np.sin(np.deg2rad(active_theta))
+
+            ax.plot(
+                active_x,
+                active_y,
+                linewidth=18,
+                solid_capstyle="round",
+                color="#1f77b4",
+            )
+
+            needle_angle = 180 - (180 * percent)
+            needle_x = 0.88 * np.cos(np.deg2rad(needle_angle))
+            needle_y = 0.88 * np.sin(np.deg2rad(needle_angle))
+
+            ax.plot([0, needle_x], [0, needle_y], linewidth=3, color="white")
+            ax.scatter([0], [0], s=45, color="white")
+
+            ax.text(
+                0,
+                1.08,
+                title,
+                ha="center",
+                va="center",
+                color="white",
+                fontsize=15,
+                fontweight="bold",
+            )
+
+            ax.text(
+                0,
+                0.28,
+                f"{self.format_number(value)} {unit}",
+                ha="center",
+                va="center",
+                color="white",
+                fontsize=19,
+                fontweight="bold",
+            )
+
+            ax.text(-1.0, -0.05, "0", ha="center", color="#bbbbbb", fontsize=9)
+            ax.text(
+                1.0,
+                -0.05,
+                str(max_value),
+                ha="center",
+                color="#bbbbbb",
+                fontsize=9,
+            )
+
+            image = self.fig_to_image(fig)
+            plt.close(fig)
+
+            ctk_image = ctk.CTkImage(
+                dark_image=image,
+                light_image=image,
+                size=(330, 210),
+            )
+
+            label.configure(text="", image=ctk_image)
+            label.image = ctk_image
+
+        except Exception as e:
+            logging.error("Failed to render gauge: %s", e)
+            label.configure(
+                text=f"{title}: {self.format_number(value)} {unit}",
+                image=None,
+            )
+
+    def update_history_chart(self, ip_address):
+        try:
+            times = list(self.history[ip_address]["times"])
+            watts = list(self.history[ip_address]["watts"])
+            amps = list(self.history[ip_address]["amps"])
+            volts = list(self.history[ip_address]["volts"])
+
+            if not times:
+                times = ["--"]
+                watts = [0]
+                amps = [0]
+                volts = [0]
+
+            x = list(range(len(times)))
+
+            fig, axes = plt.subplots(
+                3,
+                1,
+                figsize=(10.4, 3.2),
+                dpi=100,
+                sharex=True,
+            )
+
+            fig.patch.set_facecolor("#050505")
+
+            chart_rows = [
+                ("Watts", watts, axes[0]),
+                ("Amps", amps, axes[1]),
+                ("Volts", volts, axes[2]),
+            ]
+
+            for label, values, ax in chart_rows:
+                ax.set_facecolor("#050505")
+                ax.plot(x, values, marker="o", linewidth=2)
+                ax.set_ylabel(label, color="white", fontsize=9)
+                ax.tick_params(axis="y", colors="white", labelsize=8)
+                ax.tick_params(axis="x", colors="white", labelsize=8)
+                ax.grid(True, color="#222222", linewidth=0.8)
+
+                for spine in ax.spines.values():
+                    spine.set_color("#333333")
+
+                max_value = max(values) if values else 0
+                min_value = min(values) if values else 0
+
+                if max_value == min_value:
+                    padding = 1 if max_value == 0 else abs(max_value * 0.2)
+                    ax.set_ylim(min_value - padding, max_value + padding)
+                else:
+                    padding = (max_value - min_value) * 0.2
+                    ax.set_ylim(min_value - padding, max_value + padding)
+
+            axes[0].set_title(
+                "Live Monitoring History",
+                color="white",
+                fontsize=14,
+                fontweight="bold",
+                pad=6,
+            )
+
+            axes[2].set_xticks(x)
+
+            if len(times) > 10:
+                labels = []
+                step = max(1, len(times) // 8)
+
+                for index, item in enumerate(times):
+                    labels.append(item if index % step == 0 else "")
+
+                axes[2].set_xticklabels(labels, rotation=0)
+            else:
+                axes[2].set_xticklabels(times, rotation=0)
+
+            fig.tight_layout(pad=1.0)
+
+            image = self.fig_to_image(fig)
+            plt.close(fig)
+
+            ctk_image = ctk.CTkImage(
+                dark_image=image,
+                light_image=image,
+                size=(1040, 320),
+            )
+
+            self.chart_labels[ip_address].configure(text="", image=ctk_image)
+            self.chart_labels[ip_address].image = ctk_image
+
+        except Exception as e:
+            logging.error("Failed to render history chart: %s", e)
+            self.chart_labels[ip_address].configure(
+                text=f"History chart unavailable: {e}",
+                image=None,
+            )
+
+    def fig_to_image(self, fig):
+        buffer = io.BytesIO()
+        fig.savefig(
+            buffer,
+            format="png",
+            facecolor=fig.get_facecolor(),
+            bbox_inches="tight",
+            pad_inches=0.05,
+        )
+        buffer.seek(0)
+        return Image.open(buffer)
+
+    def mark_disconnected(self, ip_address, error):
+        logging.error("Error fetching data for %s: %s", ip_address, error)
+
+        self.status_labels[ip_address].configure(
+            text="Disconnected",
+            fg_color="#555555",
+            hover_color="#666666",
+        )
+
+        for label in self.metric_labels[ip_address].values():
+            label.configure(text="0")
+
+        self.update_gauge_charts(ip_address, 0, 0, 0)
+
+        self.last_seen_labels[ip_address].configure(text=f"Error: {error}")
+
+    def safe_float(self, value):
+        try:
+            return float(value)
+        except Exception:
+            return 0.0
+
+    def format_number(self, value):
+        value = self.safe_float(value)
+
+        if value == int(value):
+            return str(int(value))
+
+        return f"{value:.2f}"
 
 
 if __name__ == "__main__":
