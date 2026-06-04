@@ -170,8 +170,8 @@ class MonitoringApp(ctk.CTk):
         super().__init__()
 
         self.title("Shelly Plug Monitor")
-        self.geometry("1200x800")
-        self.minsize(1000, 700)
+        self.geometry("1200x950")
+        self.minsize(1000, 900)
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
