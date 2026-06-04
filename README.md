@@ -1,64 +1,252 @@
 # Shelly Smart Plug US Monitoring and Scheduling App
 
-### This application allows users to monitor and control their Shelly Plus Plug US devices remotely.
+A desktop application for monitoring, controlling, and scheduling one or more Shelly Plus Plug US devices from a single interface.
 
-*Features:*
+The application provides real-time device telemetry, remote power control, automated scheduling, and live monitoring charts through a simple tabbed interface.
 
-- [x] **Device Monitoring:** View real-time data such as power consumption, voltage, current, and temperature for each connected device.
+## Features
 
-- [x] **Remote Control:** Toggle the power state of devices on or off remotely from the application interface.
+* [x] **Multi-Device Support**
 
-- [x] **Schedule Management:** Create, view, and delete schedules for automated tasks, such as turning devices on or off at specified times.
+  * Monitor and manage multiple Shelly Plus Plug US devices simultaneously.
+  * Each device gets its own tab for easy navigation.
 
-- [x] **Data Visualization:** Visualize power consumption trends over time.
+* [x] **Real-Time Monitoring**
 
-- [x] **Error Handling:** Provides informative error messages and logs to help troubleshoot and resolve issues.
+  * View live device statistics including:
 
-- [x] **User-Friendly Interface:** Intuitive user interface with tabbed layout for easy navigation and management of multiple devices.
+    * Power (Watts)
+    * Voltage
+    * Current
+    * Temperature
+    * Total Energy Usage (Watt Hours)
 
-*Requirements*
+* [x] **Live Gauge Dashboard**
 
-- Python 3.x
+  * Dedicated gauges for:
 
-- Customtkinter (for GUI)
+    * Power Consumption
+    * Current Draw
+    * Voltage
 
-- CTkMessagebox (for error handling)
+* [x] **Historical Monitoring Charts**
 
-- requests (for making HTTP requests)
+  * Separate live charts for:
 
-- plotly (for data visualization)
+    * Watts
+    * Amps
+    * Volts
+  * Automatically updates while monitoring.
 
-- kaleido (for data visualization)
+* [x] **Remote Power Control**
 
-- python-dotenv (to store environment variables)
+  * Turn outlets on or off remotely.
+  * Toggle outlet state directly from the device tab.
 
-*Download and run:*
+* [x] **Schedule Management**
 
-`git clone https://github.com/krewshul/shelly_plug_monitor.git`
+  * Create scheduled toggle events.
+  * View existing schedules.
+  * Delete schedules.
+  * Uses Shelly's built-in scheduling system.
 
-`cd shelly_plug_monitor`
+* [x] **Error Handling**
 
-`python -m virtualenv .`
+  * Friendly error dialogs.
+  * Logging to `monitoring.log` for troubleshooting.
 
-- if on Windows `. Scripts\activate`
-- if on Mac or Linux `. bin/activate`
+* [x] **Persistent Configuration**
 
-`pip install -r requirements.txt`
+  * Device IP addresses are stored in a local `.env` file.
+  * Automatically loaded the next time the application starts.
 
-- to start the app
+* [x] **Modern Interface**
 
-`python start.py`
+  * Dark mode UI built with CustomTkinter.
+  * Responsive layout.
+  * Tabbed device management.
 
-Upon launching the application, you'll be prompted with 3 buttons: "Add IP Address", "Update", and "Begin Monitoring"
+---
 
-1. Select "Add IP Address" and set the IP's of your devices. 
+## Requirements
 
-***NOTE: Currently password protected devices cannot be monitored. I am having issues with creating a schedule while the password is set. I am open for people to look into it.***
+* Python 3.10+
+* CustomTkinter
+* CTkMessagebox
+* requests
+* python-dotenv
+* matplotlib
+* numpy
+* pillow
 
-2. After setting your IP Addresses, press "Update" to set your the IP's to your .env file.
+---
 
-3. Finally, press "Begin Monitoring" to start monitoring your devices.
+## Installation
 
-Once the IP's are set and monitoring begun, the application will display the devices and their status. You can interact with each device, view real-time data, and schedule automated tasks as needed.
+Clone the repository:
 
-Use the buttons provided to toggle device power, create new schedules, view existing schedules, and chart power consumption trends.
+```bash
+git clone https://github.com/krewshul/shelly_plug_monitor.git
+cd shelly_plug_monitor
+```
+
+Create a virtual environment:
+
+```bash
+python -m venv .
+```
+
+Activate the virtual environment:
+
+### Windows
+
+```bash
+.\Scripts\activate
+```
+
+### Linux / macOS
+
+```bash
+source bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Running the Application
+
+Start the application:
+
+```bash
+python start.py
+```
+
+---
+
+## Initial Setup
+
+When the application launches, you will see three buttons:
+
+### Add IP Address
+
+Adds a new Shelly device entry.
+
+Enter the local IP address of each Shelly Plus Plug US device you wish to monitor.
+
+Examples:
+
+```text
+192.168.1.100
+192.168.1.101
+192.168.1.102
+```
+
+### Update
+
+Saves all configured IP addresses to the `.env` file.
+
+The IP list will be automatically restored the next time the application starts.
+
+### Begin Monitoring
+
+Launches the monitoring dashboard.
+
+This button does **not** modify your saved configuration.
+
+---
+
+## Monitoring Dashboard
+
+Each configured device receives its own tab.
+
+Within each device tab you can:
+
+### View Device Status
+
+* Outlet ON/OFF status
+* Last successful update timestamp
+
+### Monitor Live Metrics
+
+* Watts
+* Volts
+* Amps
+* Watt Hours
+* Temperature (°F)
+
+### View Live Gauges
+
+* Power Gauge
+* Current Gauge
+* Voltage Gauge
+
+### View Historical Charts
+
+Three dedicated charts are displayed:
+
+* Power Usage (Watts)
+* Current Draw (Amps)
+* Voltage
+
+Charts update automatically while monitoring.
+
+### Control Device Power
+
+* Turn On
+* Turn Off
+* Toggle by clicking the status button
+
+### Manage Schedules
+
+Create and manage Shelly schedules directly from the application.
+
+Supported actions:
+
+* Create Schedule
+* View Schedule List
+* Delete Schedule
+
+---
+
+## Notes
+
+### Authentication
+
+At this time, password-protected Shelly devices are not officially supported.
+
+Monitoring generally works, but schedule management may fail on devices with authentication enabled.
+
+If you are familiar with Shelly authentication and would like to contribute a solution, pull requests are welcome.
+
+### Network Requirements
+
+The application communicates directly with your Shelly devices using their local IP addresses.
+
+Ensure:
+
+* Your computer and Shelly devices are on the same network.
+* Devices are reachable from your machine.
+* Local firewall rules permit access.
+
+---
+
+## Logging
+
+Errors and application events are written to:
+
+```text
+monitoring.log
+```
+
+This file can be useful when troubleshooting connectivity or scheduling issues.
+
+---
+
+## License
+
+This project is open source and available under the MIT License.
