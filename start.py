@@ -1,129 +1,150 @@
 import os
-import requests
-import logging
-from dotenv import load_dotenv
+import subprocess
+import sys
+
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
+from dotenv import load_dotenv
+
 
 class LoginApp:
     def __init__(self, root):
-        # Initialize the LoginApp class
         self.root = root
-        self.ip_entry_frames = []  # List to hold dynamically created IP entry frames
-        self.setup_UI()  # Set up the user interface
+        self.ip_entries = []
 
-    def setup_UI(self):
-        # Set up the user interface
-        self.root.title("Set Credentials for Monitoring")  # Set window title
-        ctk.set_appearance_mode("dark")  # Set theme to dark mode
-        ctk.set_default_color_theme("blue")  # Set default color theme
+        self.root.title("Shelly Plug Monitor")
 
-        # Main frame to hold all UI elements
-        self.main_frame = ctk.CTkFrame(self.root, border_width=1, border_color="#1f538d")
-        self.main_frame.grid(row=0, column=0, padx=2, pady=2, sticky="ns")
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
 
-        # Button to add IP address entry
-        self.button_add_ip = ctk.CTkButton(self.main_frame,
-                                           text="Add IP Address",
-                                           fg_color="#1f538d",
-                                           border_width=0,
-                                           command=self.add_ip_entry_frame)
-        self.button_add_ip.grid(row=1, column=0, pady=10, padx=10, sticky="ew")
+        self.main_frame = ctk.CTkFrame(
+            root,
+            border_width=1,
+            border_color="#1f538d",
+        )
+        self.main_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
 
-        # Button to update credentials
-        self.button_update = ctk.CTkButton(self.main_frame,
-                                           text="Update",
-                                           fg_color="#1f538d",
-                                           border_width=0,
-                                           command=self.update)
-        self.button_update.grid(row=2, column=0, pady=10, padx=10, sticky="ew")
+        self.add_button = ctk.CTkButton(
+            self.main_frame,
+            text="Add IP Address",
+            command=self.add_ip_entry,
+        )
+        self.add_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
-        # Button to begin monitoring
-        self.button_begin_monitoring = ctk.CTkButton(self.main_frame,
-                                                     fg_color="#1f538d",
-                                                     border_width=0,
-                                                     text="Begin Monitoring",
-                                                     command=self.open_monitoring)
-        self.button_begin_monitoring.grid(row=3, column=0, padx=5, pady=5)
+        self.update_button = ctk.CTkButton(
+            self.main_frame,
+            text="Update",
+            command=self.update_env,
+        )
 
-    def add_ip_entry_frame(self):
-        # Function to add entry fields for IP addresses dynamically
-        ip_entry_frame = ctk.CTkFrame(self.main_frame)
-        ip_entry_frame.grid(row=len(self.ip_entry_frames) + 2, column=0, sticky="ew", padx=10, pady=1)
-        ip_entry = ctk.CTkEntry(ip_entry_frame)
-        ip_entry.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        self.ip_entry_frames.append(ip_entry_frame)
+        self.start_button = ctk.CTkButton(
+            self.main_frame,
+            text="Begin Monitoring",
+            command=self.open_monitoring,
+        )
 
-        # Ensure main frame adjusts to new content
-        self.main_frame.grid_rowconfigure(len(self.ip_entry_frames) + 1, weight=1)
+        self.load_existing_ips()
+        self.reflow_buttons()
 
-        # Reposition update and begin monitoring buttons
-        self.button_update.grid(row=len(self.ip_entry_frames) + 2, pady=10, padx=10, sticky="ew")
-        self.button_begin_monitoring.grid(row=len(self.ip_entry_frames) + 3, padx=5, pady=5)
-
-    def update(self):
-        # Function to write IP addresses to ".env" file
-        ip_addresses = self.get_ip_addresses()
-
-        try:
-            # Create or load existing .env file
-            load_dotenv()
-            
-            with open(".env", "w", encoding="utf-8") as file:
-                # Write IP addresses
-                for i, ip in enumerate(ip_addresses, start=1):
-                    file.write(f'IP_ADDRESS_{i}={ip}\n')
-
-            # Display success message
-            CTkMessagebox(master=self.root,
-                          title="Success!",
-                          message="IP addresses have been updated!",
-                          icon="check")
-        except Exception as e:
-            # Display error message if updating fails
-            CTkMessagebox(title="Error!",
-                          message=f"Failed to update .env file: {e}",
-                          icon="cancel")
-
-    def get_ip_addresses(self):
-        # Function to retrieve the IP addresses entered by the user
-        ip_addresses = []
-        for frame in self.ip_entry_frames:
-            ip_entry = frame.grid_slaves(row=0, column=0)[0]
-            ip_addresses.append(ip_entry.get())
-        return ip_addresses
-
-    def open_monitoring(self):
-        # Function to open the monitoring functionality after verifying IP addresses
-        if not self.check_env_file():
-            # Check if .env file exists
-            CTkMessagebox(title="Error", message="No .env file found. Please set IP addresses.")
-            return
-
-        # Load environment variables
+    def load_existing_ips(self):
         load_dotenv(override=True)
 
-        # Retrieve IP addresses from .env
-        ip_addresses = [os.getenv(f'IP_ADDRESS_{i}') for i in range(1, 100) if os.getenv(f'IP_ADDRESS_{i}')]
+        found_any = False
 
-        if not ip_addresses:
-            # Check if IP addresses are set in .env
-            CTkMessagebox(title="Error", message="No IP addresses found in .env file. Please add at least one IP address.")
+        for i in range(1, 100):
+            ip = os.getenv(f"IP_ADDRESS_{i}")
+            if ip:
+                self.add_ip_entry(ip)
+                found_any = True
+
+        if not found_any:
+            self.add_ip_entry()
+
+    def add_ip_entry(self, value=""):
+        row = len(self.ip_entries) + 1
+
+        entry = ctk.CTkEntry(
+            self.main_frame,
+            placeholder_text="192.168.0.140",
+            width=250,
+        )
+        entry.insert(0, value)
+        entry.grid(row=row, column=0, padx=10, pady=5, sticky="ew")
+
+        self.ip_entries.append(entry)
+        self.reflow_buttons()
+
+    def reflow_buttons(self):
+        button_row = len(self.ip_entries) + 1
+
+        self.update_button.grid(
+            row=button_row,
+            column=0,
+            padx=10,
+            pady=(10, 5),
+            sticky="ew",
+        )
+
+        self.start_button.grid(
+            row=button_row + 1,
+            column=0,
+            padx=10,
+            pady=(5, 10),
+            sticky="ew",
+        )
+
+    def get_ip_addresses(self):
+        ips = []
+
+        for entry in self.ip_entries:
+            ip = entry.get().strip()
+            if ip:
+                ips.append(ip)
+
+        return ips
+
+    def update_env(self):
+        ips = self.get_ip_addresses()
+
+        if not ips:
+            CTkMessagebox(
+                title="Error",
+                message="Please add at least one IP address.",
+            )
             return
 
-        # Open the monitoring app if IP addresses are set
-        os.system("python monitor.py")
+        try:
+            with open(".env", "w", encoding="utf-8") as file:
+                for i, ip in enumerate(ips, start=1):
+                    file.write(f"IP_ADDRESS_{i}={ip}\n")
 
-    def check_env_file(self):
-        # Function to check if the .env file exists
-        return os.path.exists(".env")
+            CTkMessagebox(
+                title="Success",
+                message="IP addresses saved.",
+            )
+
+        except Exception as e:
+            CTkMessagebox(
+                title="Error",
+                message=f"Failed to save .env file:\n{e}",
+            )
+
+    def open_monitoring(self):
+        if not os.path.exists(".env"):
+            CTkMessagebox(
+                title="Error",
+                message="No .env file found. Press Update first.",
+            )
+            return
+
+        subprocess.Popen([sys.executable, "monitor.py"])
+
 
 def main():
-    # Main function to initialize the application
-    logging.basicConfig(filename='login_app.log', level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
-    root = ctk.CTk()  # Create tkinter root window
-    app = LoginApp(root)  # Initialize LoginApp instance
-    root.mainloop()  # Start tkinter event loop
+    root = ctk.CTk()
+    app = LoginApp(root)
+    root.mainloop()
+
 
 if __name__ == "__main__":
     main()
