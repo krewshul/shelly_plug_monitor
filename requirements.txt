@@ -1,7 +1,7 @@
 CTkMessagebox
 customtkinter
-kaleido
-plotly
 python-dotenv
 requests
-pymongo
+matplotlib
+numpy
+pillow
